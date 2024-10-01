@@ -72,9 +72,8 @@ class ExLlamaV2Sampler:
 
         temperature_last: bool = False
 
-        use_logit_threshold_sampler: bool = False
-        temp_threshold: float = 16.0
-        min_threshold: float = 12.0
+        temp_threshold: float = 0.0
+        min_threshold: float = 0.0
 
         confidence_breaker: int = 0
         mid_threshold: float = 15.0
@@ -633,7 +632,7 @@ class ExLlamaV2Sampler:
             output_ktokens = torch.empty((batch_size, 1, return_top_tokens), dtype = torch.long)
             output_kprobs = torch.empty((batch_size, 1, return_top_tokens), dtype = torch.float)
 
-        if settings.use_logit_threshold_sampler:
+        if settings.temp_threshold > 0.0 or settings.min_threshold > 0.0:
             output_tokens, output_ktokens, output_kprobs, output_probs = \
                 ExLlamaV2Sampler.apply_logit_threshold_sampler(logits, settings, return_top_tokens)
 
