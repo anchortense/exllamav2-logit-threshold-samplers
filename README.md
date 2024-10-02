@@ -1,4 +1,5 @@
 ## Logit threshold sampling for coherent creativity
+(with many thanks to [exllamav2](https://github.com/turboderp/exllamav2/tree/master))
 
 In language model text generation, adjusting the temperature parameter affects the randomness of the output:
 * Low temperature produces highly probable and repetitive token selections, leading to coherent but less diverse and potentially uninteresting text.
