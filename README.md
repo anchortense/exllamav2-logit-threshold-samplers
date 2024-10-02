@@ -169,6 +169,26 @@ settings.mid_threshold = 15.0
 
 settings.high_threshold = 22.0
 
+>Once upon a time, in a sprawling oak grove bathed perpetually by a honey-hued twilight sun, lived a curious little brown squirrel named Nutmeg. Unlike her kin who gleamed in the fading light and scampered tirelessly up tree limbs, Nutmeg'd rather linger beneath their canopy. Her keen eyes were constantly fixed upon a forbidden patch beyond the oaks - the shimmering metal labyrinth, a humming fortress humans referred as “The City.”
+>
+>Legend had it that a squirrel like no other, bold as brass and cunning as a fox, named Stoney the Whiskery, first ventured across the oak boundary years ago. He promised a bounty beyond squirrel dreams - juicy berries unlike any in the forest, sparkling treats called “cheese crisps,” and impossibly smooth pebbles called "coins." Though rumors of his success were whispered around hollowed bark dens every autumn, no other brave squirrel had followed him into the metallic expanse since his mysterious vanishing act.
+>
+>Nutmeg, though small and easily flustered, yearned for these fantastical treats.  The other young squirrels would roll their eyes and chatter about how silly she was for dreaming of such things, but her heart buzzed with curiosity. "Imagine," she’d whisper to her closest confidante, a bluebird perched on her favorite branch. “Imagine coins you could stack! And berries that glow!" The bird, who knew the danger but cherished Nutmeg’s optimism, would simply chirp encouragingly and flick his brilliant blue wings in a gesture that meant 'Don't forget your bravery.'
+>
+>[...]
+
+settings.temperature = 2.0
+
+settings.temp_threshold = 16.0
+
+settings.min_threshold = 12.0
+
+settings.confidence_breaker = 6
+
+settings.mid_threshold = 16.0
+
+settings.high_threshold = 22.0
+
 
 ## Explanation: Logit threshold sampler (LTS)
 
