@@ -44,7 +44,7 @@ In language model text generation, adjusting the temperature parameter affects t
 from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Cache, ExLlamaV2Tokenizer
 from exllamav2.generator import ExLlamaV2DynamicGenerator, ExLlamaV2Sampler, ExLlamaV2DynamicJob
 
-model_dir = "models/gemma-2-9b-it-exl2-6bpw/"
+model_dir = "models/gemma-2-9b-it-exl2-6bpw/"  # Set to model path
 
 config = ExLlamaV2Config(model_dir)
 model = ExLlamaV2(config)
@@ -78,7 +78,7 @@ settings.temp_threshold = 16.0
 
 for idx, prompt_str in enumerate(prompts):
     job = ExLlamaV2DynamicJob(
-        input_ids=tokenizer.encode(prompt_str, add_bos=True),
+        input_ids=tokenizer.encode(prompt_str),
         max_new_tokens=500,
         stop_conditions=[tokenizer.eos_token_id],
         gen_settings=settings,
