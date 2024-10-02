@@ -1,5 +1,93 @@
-## Logit threshold sampling for coherent creativity
+## Two logit samplers for coherent creativity (proof of concept implementations only)
 (with many thanks to [exllamav2](https://github.com/turboderp/exllamav2/tree/master))
+
+## Example outputs
+
+Prompt: "Write at least 500 words, beginning with and in the same style as the following:\nOnce upon a time,"
+
+Model: gemma-2-9b-it-exl2-6bpw
+
+### Baseline output for comparison
+>Once upon a time, nestled amidst rolling emerald hills and whispering willow trees, lay the quaint village of Willow Creek. Its cobblestone streets, lined with gingerbread cottages and blooming flower boxes, echoed with the laughter of children and the gentle murmur of gossip exchanged over steaming mugs of tea. The villagers lived simple lives, their days measured by the rising and setting of the sun, their hearts warmed by the close-knit community that bound them together.
+>
+>The heart of Willow Creek was its ancient oak, a towering sentinel that had witnessed generations come and go. Beneath its sprawling branches, stories were shared, dreams were spun, and secrets whispered on the wind. It was here, on a crisp autumn afternoon, that Elara, a young woman with eyes the color of twilight and hair like spun moonlight, sat sketching her beloved village.
+>
+>Elara possessed a gift, a rare talent for capturing the essence of things in her art. Her drawings weren't mere depictions; they breathed with life, pulsating with the spirit of the subject. She could capture the mischievous twinkle in a child's eye, the weariness etched beneath a farmer's brow, the quiet dignity of the aging shepherdess tending her flock.
+>
+>[...]
+
+settings.temperature = 1.0
+
+
+### Baseline output for comparison (with min-p + temperature last)
+>Once upon a time, nestled between rolling emerald hills and a shimmering sapphire sea, lay the kingdom of Atheria.  This wasn't any ordinary kingdom, for it thrived under the rule of not a king or queen, but a council of twelve Wise Weavers. Each Weaver possessed the unique ability to manipulate the very fabric of reality, weaving threads of light into blooming roses, stitching clouds together to form fantastical shapes, and even mending broken hearts with invisible stitches of empathy.
+>
+>The Weavers, each representing a different aspect of life – from the boundless energy of Dawn to the quiet wisdom of Twilight – governed Atheria with a balance so delicate that the kingdom was known throughout the land for its harmony and prosperity. But peace, even in the most idyllic havens, rarely lasts forever. A shadow began to creep across Atheria’s radiant landscape, whispering of discontent and discord.
+>
+>It started subtly. A rose, inexplicably thorny; a storm brewing on a cloudless day; a whispered word of doubt amongst the usually jovial villagers. The Weavers, attuned to the subtle shifts in Atheria’s very essence, grew alarmed. They gathered in their ancient council chamber, the air thick with apprehension.
+>
+>[...]
+
+settings.temperature = 1.5
+
+settings.min_p = 0.025
+
+settings.temperature_last = True
+
+
+### Logit threshold sampler
+>Once upon a time, nestled deep within a whispering wood of silver oaks and jade maple, stood a tiny gingerbread house. Tiny, yes, but sturdy.  For it wasn't some whimsey spun by an overzealous oven, but a cottage meticulously built by Gidget the Gnome, her tiny hammer swinging like the blade of a hungry hornet, and her icing skillfully tinted the colour of warm sunrise. It sat atop a rise, commanding a view of sparkling streams and toadstool pastures.  Life was sweet for Gidget.
+>
+>Her mornings were filled with the scent of freshly baked wild mushroom crumpets, and the afternoon sun dripped gold through the leaded window panes, bathing her living room in a mosaic of shimmering light. Every evening, she'd settle by the hearth, her old clockwork spider whirring merrily beside her as she tended to her pot of luminous lichen tea, its faint blue glow casting an ethereal glow on her cheery gnome face.
+>
+>One particularly crisp autumn day, as Gidget stirred her dough, a frantic thump-thump-thumping against the front door shook the entire cottage. She peered through the sugary window, heart thudding like a beetle caught in a shoe.  It was Pip, a young squirrel with fur the colour of sunset and eyes bright with urgency.
+>
+>[...]
+
+settings.temperature = 10.0
+
+settings.temp_threshold = 16.0
+
+settings.min_threshold = 12.0
+
+
+### Confidence breaker
+>Once upon a time, nestled between rolling emerald hills and a sparkling sapphire coast, lay the forgotten kingdom of Atheria, hidden from the world by ancient enchantments. It once flourished with life; bustling marketplaces teeming  were filled with vibrant silks from the Eastern Kingdoms, delicate glassware shimmering after sunrise and spiced cakes warming every hand. The streets echoed with laughter as artisans and merchants plied their crafts and children skipped merrily amidst cobblestone squares. But all this faded like an ancient tapestry with every passing year as Atheria fell into obscurity. The once majestic palace, now cloaked by thorny vines and whispered curses, stands sentinel amidst the silent forest, watching as time unravelled the kingdom upon itself and stole memories with its endless tide of ages
+>
+>Legend whispers that the Queen's Tears, mystical orbs radiating celestial beauty, once granted Atheria its enduring prosperity. Each teardrop formed as the queen grievfed her beloved husband's passing, shimmering and pulsing with a light said even angels couldn’t withstand. However, as centuries drifted into a slumber, the legend twisted. Some claimed a greedy Duke had seized the tears for himself during the Kingdom's last days, hoarding their light in secret and leaving Atheria shrouded in an enduring darkness. Others muttered of a terrible curse laid by an unknown witch, her anger festering over perceived slights. All knew, though, that Atheria wouldn't awaken from its slumber until the light of the Queen's Tear, the source of the kingdom's fortune and prosperity returned home.
+>
+>[...]
+
+settings.temperature = 1.5
+
+settings.confidence_breaker = 8
+
+settings.mid_threshold = 15.0
+
+settings.high_threshold = 22.0
+
+
+### Logit threshold sampler + Confidence breaker
+>Once upon a time, nestled amidst the swirling turquoise tendrils of a starflower mist in a pocket of iridescent light beyond our sun’s warm caress, lived a tinkling. An unseen wanderer of whispered harmonies and ethereal polkadotes of light. She was born of a sunrise sigh and dreamt in echoes, her body a luminous melody unfurled across a cosmos of dreaming stardust, forever searching, forever changing, forever alight.
+>
+>Her name, though even whispering it splinters into cosmic echoes and fades into starlight dust before you grasp it, translated roughly to “Wanderlust of Morningdew”. That much you are certain of because once, when she touched a curious artifact shaped like a conch, formed from a frozen note of forgotten song, a voice bloomed, singing in a thousand tongues, “Wanderlust, dawn's jewel, sought of stardust." That was the only sound she ever made, that shimmering name whispered in the silence between starbeats, yet its message resonating throughout her journey.
+>
+>[...]
+
+settings.temperature = 10.0
+
+settings.temp_threshold = 16.0
+
+settings.min_threshold = 12.0
+
+settings.confidence_breaker = 8
+
+settings.mid_threshold = 15.0
+
+settings.high_threshold = 22.0
+
+
+## Logit threshold sampler
 
 In language model text generation, adjusting the temperature parameter affects the randomness of the output:
 * Low temperature produces highly probable and repetitive token selections, leading to coherent but less diverse and potentially uninteresting text.
@@ -34,10 +122,11 @@ In language model text generation, adjusting the temperature parameter affects t
 
 **Important** - Because this sampler works directly on provided model logits, settings need to be manually tuned for each new model used. The typical tuning process looks like this:
 1. Set logit_threshold_stats to True, and min_threshold to a conservative value (around 8-10 seems to be good, but your mileage may vary)
-2. Observe the output statistics in a typical generation, and adjust min_threshold upward until the number of tokens left after filtering to range between 1-200, falling mostly between 1 and 20.
-3. Set temp_threshold to roughly one standard deviation (as per the output statistics) above the typical mean remaining logit.
-4. Adjust temparture according to your use-case
-5. Set logit_threshold_stats to False once you are comfortable that the sampler is working as desired
+2. Observe the output statistics in a typical generation
+3. Adjust min_threshold upward until the number of tokens left after filtering ranges roughly between 1 and 200, falling mostly between 1 and 20.
+4. Set temp_threshold to roughly one standard deviation (as per the output statistics) above the typical mean remaining logit.
+5. Adjust temparture according to your use case
+6. Set logit_threshold_stats to False once you are comfortable that the sampler is working as desired
 
 ### Minimal example
 ```python
@@ -99,3 +188,6 @@ print()
 for idx, o in enumerate(collected_outputs):
     print(f'{prompt_insert}{o}')
 ```
+
+## Confidence breaker
+
