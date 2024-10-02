@@ -220,6 +220,11 @@ This is a far deeper and more pervasive problem than the well known handful of p
 
 The **confidence breaker** addresses this issue by looking for logit patterns that signal we have entered a tram-track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram-tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
 
+Based on empirical observation of logits and the conditions for the appearance of tram-tracks, the pattern that the confidence breaker looks for to identify these tram-tracks is a sequence of mid-high valued logits, logits which have been nudged higher than a good score by over-training, but which are not yet so guaranteed as logical or grammatical necessity.
+
+![image](https://github.com/user-attachments/assets/8eb6958c-2340-4319-8abc-19259898057a)
+
+
 ### Parameters
 * **confidence_breaker** - If there are confidence_breaker flagged tokens in a row, then rollback is triggered.
   * For Gemma 2 9B, a good starting point is confidence_breaker=8
