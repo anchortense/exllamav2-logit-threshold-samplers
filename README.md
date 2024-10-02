@@ -78,7 +78,7 @@ settings.temp_threshold = 16.0
 
 for idx, prompt_str in enumerate(prompts):
     job = ExLlamaV2DynamicJob(
-        input_ids=tokenizer.encode(prompt_str),
+        input_ids=tokenizer.encode(prompt_str, add_bos=True),
         max_new_tokens=500,
         stop_conditions=[tokenizer.eos_token_id],
         gen_settings=settings,
