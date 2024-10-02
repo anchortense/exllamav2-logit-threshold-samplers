@@ -222,9 +222,9 @@ This is a far deeper and more pervasive problem than the well known handful of p
 
 The **confidence breaker sampler** addresses the issue by looking for logit patterns that signal we have entered a tram-track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram-tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
 
-Based on empirical observation of logits and the conditions for the appearance of tram-tracks, the pattern that the confidence breaker looks for to identify these tram-tracks is a sequence of mid-high valued logits, logits which have been nudged higher than a good score by over-training, but which are not yet so guaranteed as logical or grammatical necessity. Empirical observation also validates the decision to return back and alter the token *before* the tram-track, rather than the first tram-track. This is a token which had a reasonable range of viable alternatives, but once the model settled on the decision it made, the tram-track became nearly inevitable. So, this is the error we have to correct.
+Based on empirical observation of logits and the conditions for the appearance of tram-tracks, the pattern that the confidence breaker looks for to identify these tram-tracks is a sequence of mid-high valued logits, logits which have been nudged higher than a good score by over-training, but which are not yet so guaranteed as logical or grammatical necessity.
 
-![image](https://github.com/user-attachments/assets/8eb6958c-2340-4319-8abc-19259898057a)
+Empirical observation also validates the decision to return back and alter the token *before* the tram-track, rather than the first tram-track. This is a token which had a reasonable range of viable alternatives, but once the model settled on the decision it made, the tram-track became nearly inevitable. So, this is the error we have to correct.
 
 
 ### Parameters
