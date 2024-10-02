@@ -216,27 +216,27 @@ Current generation language models are well known for producing certain cliched 
 
 Current approaches to resolving this issue involve user defined lists of banned strings. This can be reasonably effective, however fail to address the deeper issue, which is the tendency of language models to funnel their responses into unintentionally learned 'tram-track' token sequences, where token choices are strongly conditioned by their immediate predecessors in a manner which is not logically or grammatically implied by the prompt or by those preceding choices.
 
-This is a far deeper and more pervasive problem than the well known handful of phrases commonly associated with the idea of ai-slop. These tram tracks exist within trained models because the tokens within them are good predictors for text completion. Nevertheless a user passing either the same or similar prompts repeatedly, looking for diverse outputs, will quickly observe that model responses which seemed initially impressive are in fact tram track patterns, and the apparent diversity of outputs is an illusion.
+This is a far deeper and more pervasive problem than the well known handful of phrases commonly associated with the idea of ai-slop. These tram-tracks exist within trained models because the tokens within them are good predictors for text completion. Nevertheless a user passing either the same or similar prompts repeatedly, looking for diverse outputs, will quickly observe that model responses which seemed initially impressive are in fact tram-track patterns, and the apparent diversity of outputs is an illusion.
 
-The **confidence breaker** addresses this issue by looking for logit patterns that signal we have entered a tram track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
+The **confidence breaker** addresses this issue by looking for logit patterns that signal we have entered a tram-track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram-tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
 
 ### Parameters
-* **confidence_breaker** - 
+* **confidence_breaker** - If there are confidence_breaker tram-track tokens in a row, then rollback is triggered.
   * For Gemma 2 9B, a good starting point is confidence_breaker=8
   * Tune this up to lengthen the required number of tokens before a confidence breaker is triggered. Tune it down to lower them. You can drop this down to 3 or even to 2 at your own risk for detection of very short sequences, or extend it out to larger numbers like 20 or 30.
-* **mid_threshold** - If a logit is encountered above this threshold and below the high_threshold, it is counted as a tram-track token. If there are confidence_breaker tram-track tokens in a row, then rollback is triggered.
+* **mid_threshold** - If a logit is encountered above this threshold and below the high_threshold, it is counted as a tram-track token. 
   * For Gemma 2 9B, a good starting point is mid_threshold=15.0
   * Tune this up to tighten the conditions for detecting tram-tracks, tune it down to loosen them
 * **high_threshold** - If a logit is encountered above this threshold, any current tram-track detection is reset. This way the model is permitted to provide a prediction that it is highly confident is the only viable option. For example if it follows logically or grammatically from previously generated tokens.
   * For Gemma 2 9B, a good starting point is high_threshold=22.0
-  * Tune this down if the model starts escaping tram tracks by resorting to incoherence, tune it up if you get too many tram tracks slipping through
+  * Tune this down if the model starts escaping tram-tracks by resorting to incoherence, tune it up if you get too many tram-tracks slipping through
 * **confidence_breaker_debug** - This is a boolean True/False (defaulting to False), which prints out a message containing the discarded text whenever a rollback is initiated.
 
 ### Note on use
 
 1. Use the high_threshold parameter wisely, this is how you ensure that the model can still maintain coherence if following a tram-track is the only way to do so.
 2. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
-3. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram track by jumping into another.
+3. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram-track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram-track by jumping into another.
 
 
 
