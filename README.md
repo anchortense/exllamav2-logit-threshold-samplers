@@ -245,10 +245,11 @@ Empirical observation also validates the decision to return back and alter the t
 
 ### Note on use
 
-1. Use the high_threshold parameter wisely, this is how you ensure that the model can still maintain coherence if following a tram-track is the only way to do so.
-2. As you lower the temperature, consider raising the mid_threshold - if the confidence breaker triggers on too many sequences in a row the model may reduce coherency to produce accepted outputs.
-3. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
-4. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram-track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram-track by jumping into another.
+1. Confidence breaker is a workaround for model overfitting. An ideally trained model would not benefit from its use.
+2. Use the high_threshold parameter wisely, this is how you ensure that the model can still maintain coherence if following a tram-track is the only way to do so.
+3. As you lower the temperature, consider raising the mid_threshold - if the confidence breaker triggers on too many sequences in a row the model may reduce coherency to produce accepted outputs.
+4. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
+5. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram-track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram-track by jumping into another.
 
 
 
