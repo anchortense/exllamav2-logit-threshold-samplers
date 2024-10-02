@@ -12,15 +12,8 @@ This repository contains a proof of concept implementation of the above samplers
 
 These implementations have not been optimised for efficiency (and run at around 70-80% speed), or integrated with other existing samplers beyond temperature, such as min-p, top-k, etc.
 
-Create and activate a new environment, then install via:
-```
-git clone https://github.com/anchortense/exllamav2-logit-threshold-samplers
-cd exllamav2-logit-threshold-samplers
-pip install -r requirements.txt
-pip install .
-```
-
-Alternatively, grab an official exllamav2 wheel from [here](https://github.com/turboderp/exllamav2/releases/tag/v0.2.3) and swap in the exllamav2/generator folder from this fork.
+## Recommended install process
+Create and activate a new environment, pip install an official exllamav2 wheel from [here](https://github.com/turboderp/exllamav2/releases/tag/v0.2.3) and then swap in the exllamav2/generator folder from this fork.
 
 ### Minimal example
 
