@@ -200,7 +200,7 @@ The **logit threshold sampler** addresses this trade-off by:
   * Tune this up or down to increase/decrease the coherence floor
 * **temperature** - The temperature applied to logits above temp_threshold. If the thresholds are set appropriately this can be increased to 10 or beyond without detrimental effects on coherence. Once low-coherence tokens are filtered out, increasing this value makes the choice of a remaining coherent token more random.
   * Set this lower for more deterministic outputs, as per standard use
-  * Set this higher for more creative outputs, temperature=10.0 is a good starting point for creative outputs on Gemma 2 9B, with the above thresholds set
+  * Set this higher for more creative outputs, temperature=4.0 is a good starting point for creative outputs on Gemma 2 9B, with the above thresholds set, but feel free to push it to 10 or beyond.
 * **logit_threshold_stats** - This is a boolean True/False (defaulting to False), which displays logic stats during token generation. Use this to get a sense of how the logit threshold sampler is affecting token selection.
 
 **Important** - Because this sampler works directly on provided model logits, settings need to be manually tuned for each new model used. The typical tuning process looks like this:
