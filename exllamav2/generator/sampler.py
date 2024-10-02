@@ -72,6 +72,7 @@ class ExLlamaV2Sampler:
 
         temperature_last: bool = False
 
+        logit_threshold_stats: bool = False
         temp_threshold: float = 0.0
         min_threshold: float = 0.0
 
@@ -197,11 +198,11 @@ class ExLlamaV2Sampler:
         # Squeeze logits
         squeezed_logits = logits.squeeze(0).squeeze(0)
 
-        min_logit_threshold = min(torch.max(squeezed_logits), settings.min_threshold)
+        min_logit_threshold = min(torch.max(squeezed_logits).item(), settings.min_threshold)
 
         filtered_indices_mask = squeezed_logits >= min_logit_threshold
 
-        # Get the filtered top-k values and indices
+        # Get the filtered values and indices
         filtered_logits = squeezed_logits[filtered_indices_mask]
         filtered_indices = torch.nonzero(filtered_indices_mask)
 
@@ -225,20 +226,20 @@ class ExLlamaV2Sampler:
             final_probs[mid_conf_mask] = Q[mid_conf_mask]
         final_probs[high_conf_mask] = p_prime[high_conf_mask]
 
-        # Calculate the sum of probabilities after capping lower confidence tokens
-        sum_p_high_ent = final_probs[mid_conf_mask].sum().item()
-        sum_p_low_ent_prime = p_prime[high_conf_mask].sum().item()
+        # Calculate the sum of probabilities after capping mid confidence tokens
+        sum_p_mid_conf = final_probs[mid_conf_mask].sum().item()
+        sum_p_high_conf_prime = p_prime[high_conf_mask].sum().item()
 
         # Remaining mass to distribute among low-entropy tokens
-        remaining_mass = 1.0 - sum_p_high_ent
+        remaining_mass = 1.0 - sum_p_mid_conf
 
         # Handle edge cases where sum_p_high_ent > 1 due to floating point inaccuracies
         if remaining_mass < 0:
             remaining_mass = 0.0
 
         # Distribute remaining_mass among low-entropy tokens proportionally to their p'_i
-        if sum_p_low_ent_prime > 0 and remaining_mass > 0:
-            scaling_factor = remaining_mass / sum_p_low_ent_prime
+        if sum_p_high_conf_prime > 0 and remaining_mass > 0:
+            scaling_factor = remaining_mass / sum_p_high_conf_prime
             final_probs[high_conf_mask] = p_prime[high_conf_mask] * scaling_factor
         else:
             # If no low-entropy tokens or no remaining mass, set low-ent probs to zero
@@ -254,6 +255,8 @@ class ExLlamaV2Sampler:
                                 final_probs)
             if final_probs.sum().item() == 0:  # In case all probabilities become 0, revert to uniform distribution
                 final_probs = torch.ones_like(final_probs) / final_probs.size(0)
+                if settings.logit_threshold_stats:
+                    print('Error populating final_probs, reverting to uniform distribution on filtered logits')
             else:
                 final_probs /= final_probs.sum(dim=-1, keepdim=True)
 
@@ -657,9 +660,9 @@ class ExLlamaV2Sampler:
                 settings.mirostat_tau,
                 settings.mirostat_eta,
                 settings.temperature if settings.temperature_last else 1.0,
-                xtc_mask,
-                settings.xtc_probability,
-                settings.xtc_threshold,
+                # xtc_mask,
+                # settings.xtc_probability,
+                # settings.xtc_threshold,
                 settings.min_temp,
                 settings.max_temp,
                 settings.temp_exponent,
@@ -669,10 +672,41 @@ class ExLlamaV2Sampler:
 
         if settings.confidence_breaker > 0:
             squeezed_logits = logits.squeeze(0).squeeze(0)
-            raw_token_prob = squeezed_logits[output_tokens]
-            confidence_flag = (raw_token_prob <= settings.high_threshold) & (raw_token_prob >= settings.mid_threshold)
+            token_logit = squeezed_logits[output_tokens]
+            confidence_flag = (token_logit <= settings.high_threshold) & (token_logit >= settings.mid_threshold)
         else:
             confidence_flag = None
+
+        if settings.logit_threshold_stats:
+            selected_token = output_tokens
+            squeezed_logits = logits.squeeze(0).squeeze(0)
+            token_logit = squeezed_logits[selected_token]
+            min_logit_threshold = min(torch.max(squeezed_logits).item(), settings.min_threshold)
+            filtered_indices_mask = squeezed_logits >= min_logit_threshold
+            filtered_logits = squeezed_logits[filtered_indices_mask]
+            probs = F.softmax(squeezed_logits, dim=-1)
+            filtered_probs = probs[filtered_indices_mask]
+            min_p_equivalent = filtered_probs[filtered_logits.argmin()].item()
+
+            # Calculate the statistics for filtered_logits
+            min_filtered = filtered_logits.min().item() if len(filtered_logits) > 0 else float('nan')
+            mean_filtered = filtered_logits.mean().item() if len(filtered_logits) > 0 else float('nan')
+            max_filtered = filtered_logits.max().item() if len(filtered_logits) > 0 else float('nan')
+            std_filtered = filtered_logits.std().item() if len(filtered_logits) > 0 else float('nan')
+
+            debug_string = (
+                f"total logits: {squeezed_logits.size(0):<7} "
+                f"filtered to: {filtered_logits.size(0):<4} "
+                f"min: {min_filtered:>5.2f}  "
+                f"mean: {mean_filtered:>5.2f}  "
+                f"max: {max_filtered:>5.2f}  "
+                f"std: {std_filtered:>5.2f}   "
+                f"selected logit: {token_logit.item():>5.2f}   "
+                f"selected token: {selected_token.item():<7}  "
+                f"min_p: {min_p_equivalent:>6.5f}"
+            )
+            print(debug_string)
+
 
         if settings.mirostat: settings.mirostat_mu = m
 

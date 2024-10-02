@@ -1655,6 +1655,7 @@ class ExLlamaV2DynamicJob:
         self.checkpoint = None
 
         self.confidence_breaker = gen_settings.confidence_breaker
+        self.confidence_breaker_debug = gen_settings.confidence_breaker_debug
         self.confidence_flag_sequence = []
         # Measurement
 
@@ -2096,6 +2097,8 @@ class ExLlamaV2DynamicJob:
             if match >= 0:
                 set_checkpoint()
                 offending_tokens, offending_text = rewind_checkpoint()
+                if self.confidence_breaker_debug:
+                    print(f'[Confidence breaker activated on text: {offending_text}]')
                 return emit(results, emit_held=True, suppressed_text=offending_text, suppressed_tokens=offending_tokens)
             elif match == -2:
                 set_checkpoint()
