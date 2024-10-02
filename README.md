@@ -1,7 +1,7 @@
 ## Logit samplers for coherent creativity
 (with many thanks to [exllamav2](https://github.com/turboderp/exllamav2/tree/master))
 
-In language model text generation, balancing coherence with diversity is a common challenge. 
+Two new samplers enabling coherent diverse text generation.
 *  The **logit threshold sampler (LTS)** filters low-confidence logits and enables the application of much higher temperatures to stronger candidates, generating varied outputs without losing coherence.
 *  The **confidence breaker sampler (CBS)** addresses repetitive patterns by dynamically detecting and discarding these patterns on the logit level, prompting the model to generate more diverse responses.
 
