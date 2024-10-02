@@ -12,7 +12,7 @@ This repository contains a proof of concept implementation of the above samplers
 
 These implementations have not been optimised for efficiency (and run at around 70-80% speed), or integrated with other existing samplers beyond temperate, such as min-p, top-k, etc.
 
-Create a new environment, then install via:
+Create and activate a new environment, then install via:
 ```
 git clone https://github.com/anchortense/exllamav2-logit-threshold-samplers
 cd exllamav2-logit-threshold-samplers
