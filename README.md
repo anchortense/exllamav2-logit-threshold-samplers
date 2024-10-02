@@ -67,7 +67,7 @@ The **confidence breaker** addresses this issue by looking for logit patterns th
 
 1. Use the high_threshold parameter wisely, this is how you ensure that the model can still maintain coherence if following a tram-track is the only way to do so.
 2. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
-3. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram track pattern. There is no recursive rollback in this case to the beginning of that new tram-track (and hence no risk of swallowing our own tail), but rather we return directly to the previously triggered rollback point. In this way we avoid escaping from one tram track by jumping into another.
+3. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram track by jumping into another.
 
 
 ### Minimal example
