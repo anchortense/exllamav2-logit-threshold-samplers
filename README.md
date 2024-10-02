@@ -96,9 +96,9 @@ Model: gemma-2-9b-it-exl2-6bpw
 >Elara possessed a gift, a rare talent for capturing the essence of things in her art. Her drawings weren't mere depictions; they breathed with life, pulsating with the spirit of the subject. She could capture the mischievous twinkle in a child's eye, the weariness etched beneath a farmer's brow, the quiet dignity of the aging shepherdess tending her flock.
 >
 >[...]
-
+```
 settings.temperature = 1.0
-
+```
 Note: If you run this 10 times you will usually get some minor variant on the above
 
 
@@ -110,13 +110,11 @@ Note: If you run this 10 times you will usually get some minor variant on the ab
 >It started subtly. A rose, inexplicably thorny; a storm brewing on a cloudless day; a whispered word of doubt amongst the usually jovial villagers. The Weavers, attuned to the subtle shifts in Atheria’s very essence, grew alarmed. They gathered in their ancient council chamber, the air thick with apprehension.
 >
 >[...]
-
+```
 settings.temperature = 1.5
-
 settings.min_p = 0.025
-
 settings.temperature_last = True
-
+```
 
 ### Logit threshold sampler
 >Once upon a time, nestled deep within a whispering wood of silver oaks and jade maple, stood a tiny gingerbread house. Tiny, yes, but sturdy.  For it wasn't some whimsey spun by an overzealous oven, but a cottage meticulously built by Gidget the Gnome, her tiny hammer swinging like the blade of a hungry hornet, and her icing skillfully tinted the colour of warm sunrise. It sat atop a rise, commanding a view of sparkling streams and toadstool pastures.  Life was sweet for Gidget.
@@ -126,13 +124,11 @@ settings.temperature_last = True
 >One particularly crisp autumn day, as Gidget stirred her dough, a frantic thump-thump-thumping against the front door shook the entire cottage. She peered through the sugary window, heart thudding like a beetle caught in a shoe.  It was Pip, a young squirrel with fur the colour of sunset and eyes bright with urgency.
 >
 >[...]
-
+```
 settings.temperature = 10.0
-
 settings.temp_threshold = 16.0
-
 settings.min_threshold = 12.0
-
+```
 
 ### Confidence breaker
 >Once upon a time, nestled between rolling emerald hills and a sparkling sapphire coast, lay the forgotten kingdom of Atheria, hidden from the world by ancient enchantments. It once flourished with life; bustling marketplaces teeming  were filled with vibrant silks from the Eastern Kingdoms, delicate glassware shimmering after sunrise and spiced cakes warming every hand. The streets echoed with laughter as artisans and merchants plied their crafts and children skipped merrily amidst cobblestone squares. But all this faded like an ancient tapestry with every passing year as Atheria fell into obscurity. The once majestic palace, now cloaked by thorny vines and whispered curses, stands sentinel amidst the silent forest, watching as time unravelled the kingdom upon itself and stole memories with its endless tide of ages
@@ -140,15 +136,12 @@ settings.min_threshold = 12.0
 >Legend whispers that the Queen's Tears, mystical orbs radiating celestial beauty, once granted Atheria its enduring prosperity. Each teardrop formed as the queen grievfed her beloved husband's passing, shimmering and pulsing with a light said even angels couldn’t withstand. However, as centuries drifted into a slumber, the legend twisted. Some claimed a greedy Duke had seized the tears for himself during the Kingdom's last days, hoarding their light in secret and leaving Atheria shrouded in an enduring darkness. Others muttered of a terrible curse laid by an unknown witch, her anger festering over perceived slights. All knew, though, that Atheria wouldn't awaken from its slumber until the light of the Queen's Tear, the source of the kingdom's fortune and prosperity returned home.
 >
 >[...]
-
+```
 settings.temperature = 1.5
-
 settings.confidence_breaker = 8
-
 settings.mid_threshold = 15.0
-
 settings.high_threshold = 22.0
-
+```
 
 ### Logit threshold sampler + Confidence breaker
 >Once upon a time, nestled amidst the swirling turquoise tendrils of a starflower mist in a pocket of iridescent light beyond our sun’s warm caress, lived a tinkling. An unseen wanderer of whispered harmonies and ethereal polkadotes of light. She was born of a sunrise sigh and dreamt in echoes, her body a luminous melody unfurled across a cosmos of dreaming stardust, forever searching, forever changing, forever alight.
@@ -156,18 +149,14 @@ settings.high_threshold = 22.0
 >Her name, though even whispering it splinters into cosmic echoes and fades into starlight dust before you grasp it, translated roughly to “Wanderlust of Morningdew”. That much you are certain of because once, when she touched a curious artifact shaped like a conch, formed from a frozen note of forgotten song, a voice bloomed, singing in a thousand tongues, “Wanderlust, dawn's jewel, sought of stardust." That was the only sound she ever made, that shimmering name whispered in the silence between starbeats, yet its message resonating throughout her journey.
 >
 >[...]
-
+```
 settings.temperature = 10.0
-
 settings.temp_threshold = 16.0
-
 settings.min_threshold = 12.0
-
 settings.confidence_breaker = 8
-
 settings.mid_threshold = 15.0
-
 settings.high_threshold = 22.0
+```
 
 >Once upon a time, in a sprawling oak grove bathed perpetually by a honey-hued twilight sun, lived a curious little brown squirrel named Nutmeg. Unlike her kin who gleamed in the fading light and scampered tirelessly up tree limbs, Nutmeg'd rather linger beneath their canopy. Her keen eyes were constantly fixed upon a forbidden patch beyond the oaks - the shimmering metal labyrinth, a humming fortress humans referred as “The City.”
 >
@@ -176,19 +165,14 @@ settings.high_threshold = 22.0
 >Nutmeg, though small and easily flustered, yearned for these fantastical treats.  The other young squirrels would roll their eyes and chatter about how silly she was for dreaming of such things, but her heart buzzed with curiosity. "Imagine," she’d whisper to her closest confidante, a bluebird perched on her favorite branch. “Imagine coins you could stack! And berries that glow!" The bird, who knew the danger but cherished Nutmeg’s optimism, would simply chirp encouragingly and flick his brilliant blue wings in a gesture that meant 'Don't forget your bravery.'
 >
 >[...]
-
+```
 settings.temperature = 2.0
-
 settings.temp_threshold = 16.0
-
 settings.min_threshold = 12.0
-
 settings.confidence_breaker = 6
-
 settings.mid_threshold = 16.0
-
 settings.high_threshold = 22.0
-
+```
 
 ## Explanation: Logit threshold sampler (LTS)
 
@@ -252,7 +236,7 @@ Empirical observation also validates the decision to return back and alter the t
   * For Gemma 2 9B, a good starting point is confidence_breaker=8
   * Tune this up to lengthen the required number of tokens before a confidence breaker is triggered. Tune it down to lower them. You can drop this down to 3 or even to 2 at your own risk for detection of very short sequences, or extend it out to larger numbers like 20 or 30.
 * **mid_threshold** - If a logit is encountered above this threshold and below the high_threshold, it is counted as a flagged token. 
-  * For Gemma 2 9B, a good starting point is mid_threshold=15.0
+  * For Gemma 2 9B, a good starting point is mid_threshold=15.0 with temperature=10, or mid_threshold=16.0 with a lower temperature
   * Tune this up to tighten the conditions for detecting tram-tracks, tune it down to loosen them
 * **high_threshold** - If a logit is encountered above this threshold, any current detection activity is reset. This way the model is permitted to provide a prediction that it is highly confident if it is the only viable option. For example if it follows logically or grammatically from previously generated tokens.
   * For Gemma 2 9B, a good starting point is high_threshold=22.0
@@ -262,8 +246,9 @@ Empirical observation also validates the decision to return back and alter the t
 ### Note on use
 
 1. Use the high_threshold parameter wisely, this is how you ensure that the model can still maintain coherence if following a tram-track is the only way to do so.
-2. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
-3. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram-track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram-track by jumping into another.
+2. As you lower the temperature, consider raising the mid_threshold - if the confidence breaker triggers on too many sequences in a row the model may reduce coherency to produce accepted outputs.
+3. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
+4. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram-track pattern. There is no recursive rollback in this case to the beginning of that new tram-track, but rather we return directly to the previously triggered rollback point and try another token from there. In this way we avoid escaping from one tram-track by jumping into another.
 
 
 
