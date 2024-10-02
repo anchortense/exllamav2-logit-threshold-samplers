@@ -3,7 +3,7 @@
 
 Two new samplers enabling coherent diverse text generation.
 *  The **logit threshold sampler (LTS)** filters low-confidence logits and enables the application of much higher temperatures to stronger candidates, generating varied outputs without losing coherence.
-*  The **confidence breaker sampler (CBS)** addresses repetitive patterns by dynamically detecting and discarding these patterns on the logit level, prompting the model to generate more diverse responses.
+*  The **confidence breaker sampler (CBS)** addresses repetitive text sequences by dynamically detecting these patterns on the logit level, allowing the model to generate more diverse responses.
 
 The key innovation is to use absolute logit values instead of softmax probabilities to retain the model’s raw confidence in each token, allowing more precise evaluation and filtering.
 
