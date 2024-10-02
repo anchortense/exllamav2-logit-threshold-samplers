@@ -1,5 +1,140 @@
-## Two logit samplers for coherent creativity (proof of concept implementations only)
+## Proof of concept logit samplers for coherent creativity
 (with many thanks to [exllamav2](https://github.com/turboderp/exllamav2/tree/master))
+
+## Logit threshold sampler
+
+In language model text generation, adjusting the temperature parameter affects the randomness of the output:
+* Low temperature produces highly probable and repetitive token selections, leading to coherent but less diverse and potentially uninteresting text.
+* High temperature increases randomness by making less probable tokens more likely, enhancing diversity but often at the expense of coherence, introducing errors or nonsensical content.
+
+The **logit threshold sampler** addresses this trade-off by:
+* Filtering out low-coherence tokens: It removes tokens with low absolute logit values (below a minimum threshold), which the model is less confident about and are likely to disrupt coherence if selected.
+* Applying high temperature to high-confidence tokens: Among the remaining tokens, those with logits above a secondary temperature threshold are subjected to higher temperature scaling. This enhances creativity among the tokens the model is most confident about, without introducing incoherence. Those remaining tokens below this threshold are not eliminated, but neither do they increase their existing probabilities.
+
+### Primary Applications
+* Coherent creativity in outputs
+  * Finely tune the level of creativity in generated text. By applying higher temperatures selectively, the sampler allows for diverse word choices among tokens the model deems highly coherent.
+* Enhancing agent diversity
+  * In systems where multiple agents use the same language model, this sampler introduces variability in their responses. Each agent can generate unique yet coherent outputs, enabling more sophisticated interactions between differing perspectives.
+ 
+### Comparison with min-p + temperature last
+**Logit threshold sampling** uses the raw logits to make decisions, preserving the model's absolute confidence in each token, and allowing for more nuanced filtering based on how confident the model is about each token.
+
+**Min-p** operates on normalised probabilities, where the absolute confidence information has already been lost due to softmax normalization. This means it can only consider tokens based on their probability relative to others, not on the absolute confidence the model has in them. Applying temperature after min-p helps, but runs the risk of false-positives if incoherent tokens have made it past the min-p, or missing out on good, viable choices below min-p, when there are many such choices available.
+
+### Parameters
+* **min_threshold** - The lowest model logit considered for selection. If the model outputs logits which all fall below this threshold, the threshold is adjusted downward to ensure that the highest logit token is still available for selection.
+  * For Gemma 2 9B, a good starting point is min_threshold=12.0
+  * Tune this up or down to increase/decrease the coherence floor
+* **temp_threshold** - The threshold above which logits will be subjected to temperature scaling, based on the assumption that they are highly coherent choices. If this is equal to or lower than min_threshold, it becomes equivalent to min_threshold.
+  * For Gemma 2 9B, a good starting point is temp_threshold=16.0
+  * Tune this up or down to increase/decrease the coherence floor
+* **temperature** - The temperature applied to logits above temp_threshold. If the thresholds are set appropriately this can be increased to 10 or beyond without detrimental effects on coherence. Once low-coherence tokens are filtered out, increasing this value makes the choice of a remaining coherent token more random.
+  * Set this lower for more deterministic outputs, as per standard use
+  * Set this higher for more creative outputs, temperature=10.0 is a good starting point for creative outputs on Gemma 2 9B, with the above thresholds set
+* **logit_threshold_stats** - This is a boolean True/False (defaulting to False), which displays logic stats during token generation. Use this to get a sense of how the logit threshold sampler is affecting token selection.
+
+**Important** - Because this sampler works directly on provided model logits, settings need to be manually tuned for each new model used. The typical tuning process looks like this:
+1. Set logit_threshold_stats to True, and min_threshold to a conservative value (around 8-10 seems to be good, but your mileage may vary)
+2. Observe the output statistics in a typical generation
+3. Adjust min_threshold upward until the number of tokens left after filtering ranges roughly between 1 and 200, falling mostly between 1 and 20.
+4. Set temp_threshold to roughly one standard deviation (as per the output statistics) above the typical mean remaining logit.
+5. Adjust temparture according to your use case
+6. Set logit_threshold_stats to False once you are comfortable that the sampler is working as desired
+
+## Confidence breaker
+Current generation language models are well known for producing certain cliched phrases, which would not necessarily be problematic in a single instance, but are known to be produced repeatedly in response to varied prompts. This is the so-called ai-slop problem. In 'deterministic' use cases this is usually not an issue, as we are simply looking for the one correct answer. In scenarios where engaging, diverse language choices are valued, ai-slop represents a significant limitation.
+
+Current approaches to resolving this issue involve user defined lists of banned strings. This can be reasonably effective, however fail to address the deeper issue, which is the tendency of language models to funnel their responses into unintentionally learned 'tram-track' token sequences, where token choices are strongly conditioned by their immediate predecessors in a manner which is not logically or grammatically implied by the prompt or by those preceding choices.
+
+This is a far deeper and more pervasive problem than the well known handful of phrases commonly associated with the idea of ai-slop. These tram tracks exist within trained models because the tokens within them are good predictors for text completion. Nevertheless a user passing either the same or similar prompts repeatedly, looking for diverse outputs, will quickly observe that model responses which seemed initially impressive are in fact tram track patterns, and the apparent diversity of outputs is an illusion.
+
+The **confidence breaker** addresses this issue by looking for logit patterns that signal we have entered a tram track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
+
+### Parameters
+* **confidence_breaker** - 
+  * For Gemma 2 9B, a good starting point is confidence_breaker=8
+  * Tune this up to lengthen the required number of tokens before a confidence breaker is triggered. Tune it down to lower them. You can drop this down to 3 or even to 2 at your own risk for detection of very short sequences, or extend it out to larger numbers like 20 or 30.
+* **mid_threshold** - If a logit is encountered above this threshold and below the high_threshold, it is counted as a tram-track token. If there are confidence_breaker tram-track tokens in a row, then rollback is triggered.
+  * For Gemma 2 9B, a good starting point is mid_threshold=15.0
+  * Tune this up to tighten the conditions for detecting tram-tracks, tune it down to loosen them
+* **high_threshold** - If a logit is encountered above this threshold, any current tram-track detection is reset. This way the model is permitted to provide a prediction that it is highly confident is the only viable option. For example if it follows logically or grammatically from previously generated tokens.
+  * For Gemma 2 9B, a good starting point is high_threshold=22.0
+  * Tune this down if the model starts escaping tram tracks by resorting to incoherence, tune it up if you get too many tram tracks slipping through
+* **confidence_breaker_debug** - This is a boolean True/False (defaulting to False), which prints out a message containing the discarded text whenever a rollback is initiated.
+
+### Note on use
+
+1. Use the high_threshold parameter wisely, this is how you ensure that the model can still maintain coherence if following a tram-track is the only way to do so.
+2. It is entirely possible to dial the settings for this sampler too high, resulting in the model never producing an accepted output, or only after a very large number of rejected solutions. Loosen the settings a little if you find that generation is taking longer than you can bear.
+3. Sometimes discarded text may be shorter than the confidence breaker setting, where there has been a rollback and then the newly generated tokens combine with still-prior generated tokens to form a new tram track pattern. There is no recursive rollback in this case to the beginning of that new tram-track (and hence no risk of swallowing our own tail), but rather we return directly to the previously triggered rollback point. In this way we avoid escaping from one tram track by jumping into another.
+
+
+### Minimal example
+```python
+from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Cache, ExLlamaV2Tokenizer
+from exllamav2.generator import ExLlamaV2DynamicGenerator, ExLlamaV2Sampler, ExLlamaV2DynamicJob
+
+model_dir = "models/gemma-2-9b-it-exl2-6bpw/"  # Set to model path
+
+config = ExLlamaV2Config(model_dir)
+model = ExLlamaV2(config)
+cache = ExLlamaV2Cache(model, max_seq_len = 4096, lazy = True)
+model.load_autosplit(cache, progress = True)
+tokenizer = ExLlamaV2Tokenizer(config)
+
+generator = ExLlamaV2DynamicGenerator(model, cache, tokenizer)
+
+prompts = []
+
+prompt_insert = 'Once upon a time,'
+
+# Using gemma 2 chat format
+prompt = f"""
+<start_of_turn>user
+Write at least 500 words, beginning with and in the same style as the following:
+{prompt_insert}<end_of_turn>
+<start_of_turn>model
+{prompt_insert}"""
+
+prompts.append(prompt)
+
+# Set up sampler settings - tuned for Gemma2-9B
+settings = ExLlamaV2Sampler.Settings()
+settings.temperature = 10.0
+
+settings.logit_threshold_stats = False
+settings.min_threshold = 12.0
+settings.temp_threshold = 16.0
+
+settings.confidence_breaker_debug = True
+settings.confidence_breaker = 8
+settings.mid_threshold = 15.0
+settings.high_threshold = 22.0
+
+for idx, prompt_str in enumerate(prompts):
+    job = ExLlamaV2DynamicJob(
+        input_ids=tokenizer.encode(prompt_str, add_bos=True),
+        max_new_tokens=500,
+        stop_conditions=[tokenizer.eos_token_id],
+        gen_settings=settings,
+        identifier=idx,
+    )
+    generator.enqueue(job)
+
+collected_outputs = [""] * len(prompts)
+
+while generator.num_remaining_jobs():
+    results = generator.iterate()
+    for result in results:
+        idx = result["identifier"]
+        text_chunk = result.get("text", "")
+        collected_outputs[idx] += text_chunk
+
+print()
+for idx, o in enumerate(collected_outputs):
+    print(f'{prompt_insert}{o}')
+```
 
 ## Example outputs
 
@@ -86,108 +221,4 @@ settings.mid_threshold = 15.0
 
 settings.high_threshold = 22.0
 
-
-## Logit threshold sampler
-
-In language model text generation, adjusting the temperature parameter affects the randomness of the output:
-* Low temperature produces highly probable and repetitive token selections, leading to coherent but less diverse and potentially uninteresting text.
-* High temperature increases randomness by making less probable tokens more likely, enhancing diversity but often at the expense of coherence, introducing errors or nonsensical content.
-
-**Logit threshold sampling** addresses this trade-off by:
-* Filtering out low-coherence tokens: It removes tokens with low absolute logit values (below a minimum threshold), which the model is less confident about and are likely to disrupt coherence if selected.
-* Applying high temperature to high-confidence tokens: Among the remaining tokens, those with logits above a secondary temperature threshold are subjected to higher temperature scaling. This enhances creativity among the tokens the model is most confident about, without introducing incoherence. Those remaining tokens below this threshold are not eliminated, but neither do they increase their existing probabilities.
-
-### Primary Applications
-* Coherent creativity in outputs
-  * Finely tune the level of creativity in generated text. By applying higher temperatures selectively, the sampler allows for diverse word choices among tokens the model deems highly coherent.
-* Enhancing agent diversity
-  * In systems where multiple agents use the same language model, this sampler introduces variability in their responses. Each agent can generate unique yet coherent outputs, enabling more sophisticated interactions between differing perspectives.
- 
-### Comparison with min-p + temperature last
-**Logit threshold sampling** uses the raw logits to make decisions, preserving the model's absolute confidence in each token, and allowing for more nuanced filtering based on how confident the model is about each token.
-
-**Min-p** operates on normalised probabilities, where the absolute confidence information has already been lost due to softmax normalization. This means it can only consider tokens based on their probability relative to others, not on the absolute confidence the model has in them. Applying temperature after min-p helps, but runs the risk of false-positives if incoherent tokens have made it past the min-p, or missing out on good, viable choices below min-p, when there are many such choices available.
-
-### Parameters
-* **min_threshold** - The lowest model logit considered for selection. If the model outputs logits which all fall below this threshold, the threshold is adjusted downward to ensure that the highest logit token is still available for selection.
-  * For Gemma 2 9B, a good starting point is min_threshold=12.0
-  * Tune this up or down to increase/decrease the coherence floor
-* **temp_threshold** - The threshold above which logits will be subjected to temperature scaling, based on the assumption that they are highly coherent choices. If this is equal to or lower than min_threshold, it becomes equivalent to min_threshold.
-  * For Gemma 2 9B, a good starting point is temp_threshold=16.0
-  * Tune this up or down to increase/decrease the coherence floor
-* **temperature** - The temperature applied to logits above temp_threshold. If the thresholds are set appropriately this can be increased to 10 or beyond without detrimental effects on coherence. Once low-coherence tokens are filtered out, increasing this value makes the choice of a remaining coherent token more random.
-  * Set this lower for more deterministic outputs, as per standard use
-  * Set this higher for more creative outputs, temperature=10.0 is a good starting point for creative outputs on Gemma 2 9B, with the above thresholds set
-* **logit_threshold_stats** - This is a boolean True/False (defaulting to False), which displays logic stats during token generation. Use this to get a sense of how the logit threshold sampler is affecting token selection.
-
-**Important** - Because this sampler works directly on provided model logits, settings need to be manually tuned for each new model used. The typical tuning process looks like this:
-1. Set logit_threshold_stats to True, and min_threshold to a conservative value (around 8-10 seems to be good, but your mileage may vary)
-2. Observe the output statistics in a typical generation
-3. Adjust min_threshold upward until the number of tokens left after filtering ranges roughly between 1 and 200, falling mostly between 1 and 20.
-4. Set temp_threshold to roughly one standard deviation (as per the output statistics) above the typical mean remaining logit.
-5. Adjust temparture according to your use case
-6. Set logit_threshold_stats to False once you are comfortable that the sampler is working as desired
-
-### Minimal example
-```python
-from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Cache, ExLlamaV2Tokenizer
-from exllamav2.generator import ExLlamaV2DynamicGenerator, ExLlamaV2Sampler, ExLlamaV2DynamicJob
-
-model_dir = "models/gemma-2-9b-it-exl2-6bpw/"  # Set to model path
-
-config = ExLlamaV2Config(model_dir)
-model = ExLlamaV2(config)
-cache = ExLlamaV2Cache(model, max_seq_len = 4096, lazy = True)
-model.load_autosplit(cache, progress = True)
-tokenizer = ExLlamaV2Tokenizer(config)
-
-generator = ExLlamaV2DynamicGenerator(model, cache, tokenizer)
-
-prompts = []
-
-prompt_insert = 'Once upon a time,'
-
-# Using gemma 2 chat format
-prompt = f"""
-<start_of_turn>user
-Write at least 500 words, beginning with and in the same style as the following:
-{prompt_insert}<end_of_turn>
-<start_of_turn>model
-{prompt_insert}"""
-
-prompts.append(prompt)
-
-# Set up sampler settings - tuned for Gemma2-9B
-settings = ExLlamaV2Sampler.Settings()
-settings.logit_threshold_stats = False
-settings.temperature = 10.0
-settings.min_threshold = 12.0
-settings.temp_threshold = 16.0
-
-
-for idx, prompt_str in enumerate(prompts):
-    job = ExLlamaV2DynamicJob(
-        input_ids=tokenizer.encode(prompt_str, add_bos=True),
-        max_new_tokens=500,
-        stop_conditions=[tokenizer.eos_token_id],
-        gen_settings=settings,
-        identifier=idx,
-    )
-    generator.enqueue(job)
-
-collected_outputs = [""] * len(prompts)
-
-while generator.num_remaining_jobs():
-    results = generator.iterate()
-    for result in results:
-        idx = result["identifier"]
-        text_chunk = result.get("text", "")
-        collected_outputs[idx] += text_chunk
-
-print()
-for idx, o in enumerate(collected_outputs):
-    print(f'{prompt_insert}{o}')
-```
-
-## Confidence breaker
 
