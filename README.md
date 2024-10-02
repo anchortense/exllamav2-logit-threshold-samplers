@@ -218,7 +218,9 @@ Current approaches to resolving this issue involve user defined lists of banned 
 
 This is a far deeper and more pervasive problem than the well known handful of phrases commonly associated with the idea of ai-slop. These tram-tracks exist within trained models because the tokens within them are good predictors for text completion. Nevertheless a user passing either the same or similar prompts repeatedly, looking for diverse outputs, will quickly observe that model responses which seemed initially impressive are in fact tram-track patterns, and the apparent diversity of outputs is an illusion.
 
-The **confidence breaker** addresses this issue by looking for logit patterns that signal we have entered a tram-track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram-tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
+### Using the confidence breaker to jump tracks
+
+The **confidence breaker sampler** addresses the issue by looking for logit patterns that signal we have entered a tram-track, and extending exllamav2's banned string functionality to roll-back to the token directly before we entered the tram-tracks. The tram-tracked tokens are then discarded and replaced by a novel generation, which will take us down a different, less travelled path.
 
 Based on empirical observation of logits and the conditions for the appearance of tram-tracks, the pattern that the confidence breaker looks for to identify these tram-tracks is a sequence of mid-high valued logits, logits which have been nudged higher than a good score by over-training, but which are not yet so guaranteed as logical or grammatical necessity. Empirical observation also validates the decision to return back and alter the token *before* the tram-track, rather than the first tram-track. This is a token which had a reasonable range of viable alternatives, but once the model settled on the decision it made, the tram-track became nearly inevitable. So, this is the error we have to correct.
 
