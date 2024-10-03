@@ -411,7 +411,7 @@ Empirical observation also validates the decision to return back and alter the t
 
 
 ### Parameters
-* **confidence_breaker** - If there are confidence_breaker flagged tokens in a row, then rollback is triggered.
+* **confidence_breaker** - An integer setting the length of a sequence match. If there are confidence_breaker flagged tokens in a row, then rollback is triggered.
   * For Gemma 2 9B, a good starting point is confidence_breaker=8
   * Tune this up to lengthen the required number of tokens before a confidence breaker is triggered. Tune it down to lower them. You can drop this down to 3 or even to 2 at your own risk for detection of very short sequences, or extend it out to larger numbers like 20 or 30.
 * **mid_threshold** - If a logit is encountered above this threshold and below the high_threshold, it is counted as a flagged token.
