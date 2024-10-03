@@ -1656,7 +1656,7 @@ class ExLlamaV2DynamicJob:
 
         self.confidence_breaker = gen_settings.confidence_breaker
         self.confidence_breaker_debug = gen_settings.confidence_breaker_debug
-        self.confidence_flag_sequence = []
+        self.confidence_flag_sequence = [False] * self.confidence_breaker
         # Measurement
 
         self.time_enqueue = None
@@ -1792,6 +1792,14 @@ class ExLlamaV2DynamicJob:
                 if f.use_background_worker():
                     self.generator.filter_queue.append(f)
 
+        # Update confidence_flag_sequence
+
+        if confidence_flag is not None:
+            self.confidence_flag_sequence.append(confidence_flag)
+            # Limit the size of the sequence to prevent it from growing indefinitely
+            if len(self.confidence_flag_sequence) > self.confidence_breaker + 1:
+                self.confidence_flag_sequence.pop(0)
+
         # Accept token
 
         self.new_tokens += 1
@@ -1861,15 +1869,15 @@ class ExLlamaV2DynamicJob:
         # Stream output
 
         def emit(
-                results: list,
-                emit_eos: bool = False,
-                eos_reason: str = None,
-                emit_held=False,
-                suppressed_text=None,
-                suppressed_tokens=None,
-                stop_token: int = None,
-                stop_string: str = None,
-                rem_held_text: str = None
+            results: list,
+            emit_eos: bool = False,
+            eos_reason: str = None,
+            emit_held = False,
+            suppressed_text = None,
+            suppressed_tokens = None,
+            stop_token: int = None,
+            stop_string: str = None,
+            rem_held_text: str = None
         ):
             r = {
                 "job": self,
@@ -1879,7 +1887,7 @@ class ExLlamaV2DynamicJob:
             }
 
             if eos_reason is not None:
-                r.update({"eos_reason": eos_reason})
+                r.update({ "eos_reason": eos_reason })
                 if eos_reason == "stop_token":
                     id_to_piece = self.generator.tokenizer.get_id_to_piece_list(True)
                     r.update({
@@ -1888,31 +1896,31 @@ class ExLlamaV2DynamicJob:
                     })
                     pass
                 if eos_reason == "stop_string":
-                    r.update({"eos_triggering_string": stop_string})
+                    r.update({ "eos_triggering_string": stop_string })
 
             if emit_held:
                 if self.held_text != "":
                     self.full_completion += self.held_text
-                    r.update({"text": self.held_text})
+                    r.update({ "text": self.held_text })
                     self.held_text = ""
                 if self.held_tokens:
-                    r.update({"token_ids": self.held_tokens.torch().clone()})
+                    r.update({ "token_ids": self.held_tokens.torch().clone() })
                     self.held_tokens.clear()
                 if self.held_probs:
-                    r.update({"token_probs": self.held_probs.torch().clone()})
+                    r.update({ "token_probs": self.held_probs.torch().clone() })
                     self.held_probs.clear()
                 if self.held_k_tokens:
-                    r.update({"top_k_tokens": self.held_k_tokens.torch().clone()})
-                    r.update({"top_k_probs": self.held_k_probs.torch().clone()})
+                    r.update({ "top_k_tokens": self.held_k_tokens.torch().clone() })
+                    r.update({ "top_k_probs": self.held_k_probs.torch().clone() })
                     self.held_k_tokens.clear()
                     self.held_k_probs.clear()
                 if self.held_logits:
-                    r.update({"logits": self.held_logits.torch().clone()})
+                    r.update({ "logits": self.held_logits.torch().clone() })
                     self.held_logits.clear()
 
             if suppressed_text:
-                r.update({"suppressed_text": suppressed_text})
-                r.update({"suppressed_tokens": suppressed_tokens.torch()})
+                r.update({ "suppressed_text": suppressed_text })
+                r.update({ "suppressed_tokens": suppressed_tokens.torch() })
 
             if emit_eos:
                 self.is_finished = True
@@ -1936,21 +1944,21 @@ class ExLlamaV2DynamicJob:
                     self.held_text = rem_held_text
                 rh = {}
                 if self.held_text:
-                    rh.update({"text": self.held_text})
+                    rh.update({ "text": self.held_text })
                 if self.held_tokens:
-                    rh.update({"token_ids": self.held_tokens.torch().clone()})
+                    rh.update({ "token_ids": self.held_tokens.torch().clone() })
                 if self.held_probs:
-                    rh.update({"token_probs": self.held_probs.torch().clone()})
+                    rh.update({ "token_probs": self.held_probs.torch().clone() })
                 if self.held_k_tokens:
-                    rh.update({"top_k_tokens": self.held_k_tokens.torch().clone()})
-                    rh.update({"top_k_probs": self.held_k_probs.torch().clone()})
+                    rh.update({ "top_k_tokens": self.held_k_tokens.torch().clone() })
+                    rh.update({ "top_k_probs": self.held_k_probs.torch().clone() })
                 if self.held_logits:
-                    rh.update({"logits": self.held_logits.torch().clone()})
+                    rh.update({ "logits": self.held_logits.torch().clone() })
                 if rh:
-                    r.update({"held": rh})
+                    r.update({ "held": rh })
 
             if self.identifier is not None:
-                r.update({"identifier": self.identifier})
+                r.update({ "identifier": self.identifier })
 
             results.append(r)
             return emit_eos, next_token
@@ -1977,27 +1985,27 @@ class ExLlamaV2DynamicJob:
         # End on stop tokens
 
         if next_token.item() in self.stop_tokens:
-            return emit(results, emit_eos=True, eos_reason="stop_token", stop_token=next_token.item())
+            return emit(results, emit_eos = True, eos_reason = "stop_token", stop_token = next_token.item())
 
         # Stop if we reach max_new_tokens
         # TODO: Auto-extend option
 
         if self.new_tokens >= self.max_new_tokens - self.generator.num_draft_tokens:
-            return emit(results, emit_eos=True, emit_held=True, eos_reason="max_new_tokens")
+            return emit(results, emit_eos = True, emit_held = True, eos_reason = "max_new_tokens")
 
         # End now if newly added token ends a filter
 
         if filter_eos:
-            return emit(results, emit_eos=True, emit_held=True, eos_reason="end_filter")
+            return emit(results, emit_eos = True, emit_held = True, eos_reason = "end_filter")
 
         # Hold text if it contains an incomplete character
 
-        if 1 <= self.held_text.count(" ") < 5:
+        if 1 <= self.held_text.count("�") < 5:
             test_decode = self.generator.tokenizer.decode(
                 self.held_tokens.torch(),
-                decode_special_tokens=self.decode_special_tokens
+                decode_special_tokens = self.decode_special_tokens
             )[0]
-            if not " " in test_decode:
+            if not "�" in test_decode:
                 self.held_text = test_decode
             else:
                 return emit(results)
@@ -2017,7 +2025,7 @@ class ExLlamaV2DynamicJob:
                     "held_k_tokens": self.held_k_tokens.clone(1),
                     "held_k_probs": self.held_k_probs.clone(1),
                     "held_logits": self.held_logits.clone(1),
-                    "flag_sequence": self.confidence_flag_sequence.copy(),
+                    "flag_sequence": self.confidence_flag_sequence[:-1].copy(),
                     "explored_tokens": [next_token.item()],
                 }
             else:
@@ -2046,71 +2054,67 @@ class ExLlamaV2DynamicJob:
             off_tokens = self.held_tokens.slice(len(self.checkpoint["held_tokens"]), None)
             off_text = self.held_text[len(self.checkpoint["held_text"]):]
             self.held_text = self.checkpoint["held_text"]
-            self.held_token = self.checkpoint["held_tokens"]
+            self.held_tokens = self.checkpoint["held_tokens"]
             self.held_probs = self.checkpoint["held_probs"]
             self.held_k_tokens = self.checkpoint["held_k_tokens"]
             self.held_k_probs = self.checkpoint["held_k_probs"]
             self.held_logits = self.checkpoint["held_logits"]
-            self.confidence_flag_sequence = self.checkpoint["flag_sequence"][:-2]
+            self.confidence_flag_sequence = self.checkpoint["flag_sequence"]
             self.checkpoint["offset"] = 0
             return off_tokens, off_text
 
-        # Update confidence_flag_sequence
-        if confidence_flag is not None:
-            self.confidence_flag_sequence.append(confidence_flag)
-            # Limit the size of the sequence to prevent it from growing indefinitely
-            if len(self.confidence_flag_sequence) > self.confidence_breaker + 1:
-                self.confidence_flag_sequence.pop(0)
-
-        # Existing banned string processing
         if self.new_tokens > 0:
-            match = -1
+            # Check for banned strings
+            banned_string_match = -1
             if self.banned_strings_utf32_offsets is not None:
-                match = ext_c.partial_strings_match(
-                    np.frombuffer(self.held_text.lower().encode("utf-32-le"), dtype=np.uint8),
+                banned_string_match = ext_c.partial_strings_match(
+                    np.frombuffer(self.held_text.lower().encode("utf-32-le"), dtype = np.uint8),
                     self.banned_strings_utf32_offsets,
                     self.banned_strings_utf32_buffer
                 )
 
-            # Check for confidence_flag sequence
-            # We look for at least one False followed by n True flags
-            if len(self.confidence_flag_sequence) >= self.confidence_breaker + 1 and self.confidence_breaker > 0:
-                # We need to find a position where there is at least one False
-                # before the last n True flags
-                last_n_flags = self.confidence_flag_sequence[-self.confidence_breaker:]
-                if all(last_n_flags):
-                    match = 1  # Full match
+            confidence_breaker_match = -1
+            if self.confidence_breaker > 0:
+                # Check for confidence_flag sequence
+                if confidence_flag is not None:
+                    if len(self.confidence_flag_sequence) >= self.confidence_breaker + 1:
+                        last_n_flags = self.confidence_flag_sequence[-self.confidence_breaker:]
+                        if not confidence_flag:
+                            confidence_breaker_match = -1  # False flag
+                        elif all(last_n_flags):
+                            confidence_breaker_match = 1  # Match
+                        else:
+                            confidence_breaker_match = -2  # Partial match
+                    else:
+                        confidence_breaker_match = -2  # Partial match
+                elif self.confidence_flag_sequence[-1]:
+                    confidence_breaker_match = -2  # Treat None as True flag, with partial match
                 else:
-                    # Check for partial match
-                    # If the last few flags are True but less than n
-                    for i in range(1, self.confidence_breaker):
-                        if len(self.confidence_flag_sequence) >= i:
-                            if all(self.confidence_flag_sequence[-i:]):
-                                match = -2  # Partial match
-                                break
-            else:
-                # Check for partial match
-                if len(self.confidence_flag_sequence) >= 1 and all(
-                        self.confidence_flag_sequence[-len(self.confidence_flag_sequence):]):
-                    match = -2  # Partial match
+                    confidence_breaker_match = -1  # Treat None as False flag
 
-            if match >= 0:
-                set_checkpoint()
-                offending_tokens, offending_text = rewind_checkpoint()
-                if self.confidence_breaker_debug:
-                    print(f'[Confidence breaker activated on text: {offending_text}]')
-                return emit(results, emit_held=True, suppressed_text=offending_text, suppressed_tokens=offending_tokens)
-            elif match == -2:
-                set_checkpoint()
-                return emit(results)
-            else:
-                unset_checkpoint()
+                if confidence_breaker_match >= 0:  # Match confidence breaker
+                    set_checkpoint()  # Increment offset
+                    if self.confidence_breaker_debug:
+                        print(f'[Confidence breaker activated on text: "{self.held_text}"]', flush=True)
+                    offending_tokens, offending_text = rewind_checkpoint()
+                    return emit(results, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
+                elif banned_string_match >= 0:
+                    set_checkpoint()  # Increment offset
+                    offending_tokens, offending_text = rewind_checkpoint()
+                    return emit(results, emit_held = True, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
+                elif banned_string_match == -2 or confidence_breaker_match == -2:  # Partial match
+                    set_checkpoint()
+                    return emit(results)
+                else:  # Reset and permit text passthrough
+                    if len(self.full_completion) > 0:
+                        set_checkpoint()
+                    unset_checkpoint()
 
         # End on stop strings
 
         if self.stop_strings_utf32_offsets is not None:
             match = ext_c.partial_strings_match(
-                np.frombuffer(self.held_text.encode("utf-32-le"), dtype=np.uint8),
+                np.frombuffer(self.held_text.encode("utf-32-le"), dtype = np.uint8),
                 self.stop_strings_utf32_offsets,
                 self.stop_strings_utf32_buffer
             )
@@ -2121,11 +2125,11 @@ class ExLlamaV2DynamicJob:
                     if held.startswith(s):
                         return emit(
                             results,
-                            emit_eos=True,
-                            emit_held=True,
-                            eos_reason="stop_string",
-                            stop_string=s,
-                            rem_held_text=held
+                            emit_eos = True,
+                            emit_held = True,
+                            eos_reason = "stop_string",
+                            stop_string = s,
+                            rem_held_text = held
                         )
                 assert False, "Detected stop string but couldn't identify it (logic error)"
             if match == -2:
@@ -2133,7 +2137,8 @@ class ExLlamaV2DynamicJob:
 
         # Stream output
 
-        return emit(results, emit_held=True)
+        return emit(results, emit_held = True)
+
 
     def prepare_for_queue(self, generator, serial_number: int):
 
