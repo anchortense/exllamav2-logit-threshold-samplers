@@ -2,8 +2,8 @@
 (with many thanks to [exllamav2](https://github.com/turboderp/exllamav2/tree/master))
 
 Two new samplers enabling coherent diverse text generation.
-*  The **logit threshold sampler (LTS)** filters low-confidence logits and enables the application of much higher temperatures to stronger candidates, generating varied outputs without losing coherence.
-*  The **confidence breaker sampler (CBS)** addresses repetitive text sequences by dynamically detecting these patterns on the logit level, allowing the model to generate more diverse responses. CBS builds upon the existing implementation of banned strings in exllamav2.
+*  The **logit threshold sampler** filters low-confidence logits and enables the application of much higher temperatures to stronger candidates, generating varied outputs without losing coherence.
+*  The **confidence breaker sampler** addresses repetitive text sequences by dynamically detecting them on the logit level, allowing the model to generate more diverse responses. CB builds upon the existing implementation of banned strings in exllamav2.
 
 The key innovation is to use absolute logit values instead of softmax probabilities to retain the model’s raw confidence in each token, allowing more precise evaluation and filtering.
 
@@ -14,7 +14,7 @@ This repository contains a proof of concept implementation of the above samplers
 
 These implementations have not been optimised for efficiency (and run at around 70-80% speed), or integrated with other existing samplers beyond temperature, such as min-p, top-k, etc.
 
-These implementations are not compatible with batched prompts, and have not been tested for use with banned_strings, which may lead to unexpected interactions with CBS.
+These implementations are not compatible with batched prompts, and have not been tested for use with banned_strings, which may lead to unexpected interactions with CB.
 
 ### Recommended install process
 Create and activate a new environment, pip install an official exllamav2 wheel from [here](https://github.com/turboderp/exllamav2/releases/tag/v0.2.3) and then swap in the exllamav2/generator folder from this fork.
@@ -86,7 +86,51 @@ for idx, o in enumerate(collected_outputs):
     print(f'{prompt_insert}{o}\n')
 ```
 
-## Example outputs
+## Example output
+
+Model: gemma-2-9b-it-exl2-6bpw
+
+This is the very first output generated using my personal character builder workflow. As always the prompting is important as the sampler.
+```
+# LTS + CB, conservative settings
+settings.temperature = 3.9
+settings.temp_threshold = 16.0
+settings.min_threshold = 12.0
+settings.confidence_breaker = 8
+settings.mid_threshold = 18.0
+settings.high_threshold = 0.999
+```
+
+>Sometimes it's funny, the way life squeezes you into these tiny corners, how you become a package deal of routines and responsibilities. People call it being dependable, but it's more like…survival. Gotta deliver this pizza, gotta check in with Ma, gotta pick up those socks from the laundry before David's place. I mean, what would they even say if I showed up empty-handed? Not to mention I’m already late on that chip delivery to my Uncle Tony, he gets mad if we forget him. You get all these tiny gigs in your head, a list that never really ends. The city sounds like a walk-in refrigerator – hum, hiss, the rhythmic whoosh of passing buses and cars. My walk feels like that; constant motion, just another block, another errand. People think they see me, with a smile and a nod, but it’s all surface, really. It’s like I’m always waiting for the right moment to step out, but it never seems to come. Not now, anyway.
+>
+>My mom talks about "good jobs," "building something." It's hard not to take those words to heart. My dad… well, let's just say his path wasn't paved with parking garages and late nights. Sometimes, when the radio's blasting a certain tune, I see him, you know? Sitting courtside, watching me shoot hoops, his worn leather jacket against that scuffed wood. Makes me want to pick up those stray basketballs in the street, dribble down to the court and just…feel alive. But then that gnawing worry, that little voice, it reminds me of my tuition bills and rent and the old jalopy that keeps me on the road. You forget about those things when you're racing the kids, vying for that last basket, adrenaline buzzing. And the score just doesn't matter anymore. The sweat, the squeak of the shoes, those echoing shots – that’s just life, right? I can almost taste those popsicles, the cold crunch in a hot day, a shared secret. It’s all faded now, like an old photo, Mom and me huddled in the shadows, watching Dad try to be cool.
+>
+>It's like I’m running away from a movie that hasn’t even started yet. This life I have, it feels like a silent loop, predictable, reliable, almost comforting. I'm a character, sure, but a forgettable one. Like the pizza guy in the background, the friendly face, the guy who knows everybody's order, but no one really sees. Maybe that’s the point, keeps everyone happy, keeps the rhythm going. You gotta get good at keeping things running, at making those small sacrifices.
+>
+>Those unspoken expectations, they’re a tight grip, but then I see a smile from an old lady getting her change, a young guy giving me a “good work”, and it feels…almost like enough. The city's a symphony of little moments. A choked sigh from a dog on a leash, the clang of a trash can, a whispered argument across the street, a bus driver’s sigh as he opens his window. It's a strange kind of beauty, a rhythm I’m caught in. I can't explain why I keep looking at the corner drugstore, that dusty sign above the window, the one with the broken letters. Just feels like there's something more, something missing. Maybe I’d recognize it if I stopped, took a breath, didn't always have to keep moving.
+>
+>That’s what she wants, isn't it? A reason to be proud. Maybe, that's where I fall short. She wants me to be something bigger, something bolder, a future she can picture. The basketball scholarship was just a dream, a whisper I hoped she wouldn't forget. It's hard not to feel like a ghost sometimes, drifting from call to call, a body fulfilling obligations, not really living.
+>
+>It's the small stuff, really. Shay says I should relax, “just enjoy the night.” Easy for her, with her days at that photography studio, all sunlight and spontaneity. She doesn’t know about the bills, about the feeling that if I don’t work double shifts, that the whole thing could crumble. Sometimes at night, I think about running, just disappearing, throwing my gloves and phone in my backpack, buying a ticket on a random train. See where the tracks take me. But those are just fleeting images, shadows, like a worn out dream I shouldn't admit to myself. I don’t want to disappoint her. And David needs that copy of Dostoevsky, needs a ride to that music store downtown. They need someone. I need to be the guy who shows up, even if I hate the uniform, even if it's just for tonight.
+>
+>My brother Marcus, he made it out. Got that fancy law degree, his office on the 37th floor, downtown chic with a view of the whole city. He seems happy, content. I see it in those rare phone calls, the measured tones, the confident silences. Maybe that’s the kind of future my mom wants, the kind that makes a story for family gatherings. But it doesn't feel like me. Like I’d be wearing someone else's clothes, performing a role I haven't memorized yet. It's not envy. Not exactly. More like…yearning for what they don’t understand.
+>
+>She calls me "special." She sees something in me that I don't even see anymore. And that fear of disappointment, it eats at me, It’s the cheese stain on my shoulder, the leftover pizza boxes filling the apartment. But she wouldn’t let me wallow. “Start your own thing,” she’d say. “Passion is a word they throw around, Michael.”
+>
+>People need something to hold onto, someone to lend them a hand, a smile, a delivery at just the right time. Today, it’s me.
+>
+>I wish I could say this is the only time I feel like that. That these cravings to push further, to step outside, to embrace something messy and unknown, are just dormant. Like a caged animal yearning for the hunt. They’re there, a quiet echo behind my eyes. And sometimes they make the mundane unbearable, the familiar feel stifling. And there are days, just a few, where the phone slips out of reach, and the rhythm feels wrong, and I stand on a corner and just watch the street, waiting for something to break through.
+>
+>Let me tell you, though, it’s hard to imagine what that something might be when you spend all your energy trying not to become the problem
+>
+>That’s all for now, anyway, got another pizza guy, third on line for customer who looks like they want the world to know they're never coming back here ever again. You try explaining the city in snapshots like this. They are a blur. That's the thing with expectations, you live them, you learn them. I'm good with that. Just good, that’s all anyone expects, isn't it? And sometimes, good is good enough. I should call Ma, ask how dinner went. She keeps that chipped porcelain cat on her counter, the one she got at a flea market. I've always wondered about the story behind it, if she's got one.
+>
+>The way the streetlight shines, it’s like it's looking at you. Just watching you move through the darkness, a small flame against the asphalt. The next block smells of vinegar. Rain maybe. I close my eyes, and for a second, I'm back on that court.
+>
+>That ghost, she's not in me, just behind me, watching, always watching.
+
+
+## Output comparison
 
 Prompt: "Write at least 500 words, beginning with and in the same style as the following:\nOnce upon a time,"
 
@@ -142,6 +186,33 @@ settings.temperature_last = True
 >**Trial** 5.
 >
 >Once upon a time, nestled amongst the silver-leafed birch trees and whispering willows by the banks of the River Whisper, lived a girl named Elara. Her hair was the color of spun moonlight, her eyes like pools reflecting the twilight sky, and her spirit as untamed as the winds that rustled through the ancient trees. Elara wasn't like the other village girls, content with their embroidery hoops and quiet afternoons. She craved adventure, her heart yearning for the mysteries that lay beyond the familiar boundaries of
+
+```
+# With XTC
+settings.temperature = 1.0
+settings.xtc_threshold = 0.1
+settings.xtc_probability = 0.5
+```
+>**Trial** 1.
+>
+>Once upon a time, nestled amongst the emerald foothills of a slumbering volcano, lay the village of Asteria.  A place where sunlight dripped like honey through the leaves of ancient willow trees, and laughter echoed from cobblestone streets lined with quaint flower stalls and bakeries overflowing with the scent of warm bread. Life in Asteria moved at the leisurely pace of a hummingbird's wings, each day a gentle brushstroke on the canvas of existence.
+>
+>**Trial** 2.
+>
+>Once upon a time, nestled amidst rolling emerald hills and whispering willow trees, lived a village known as Sunhaven.  Its name was well-earned, for the sun seemed to linger longer in that place, bathing the cobblestone streets and thatched rooftops in a glorious golden light. Life there flowed at a gentle pace, dictated by the rhythms of the seasons and the cheerful clanging of the blacksmith's hammer.  The villagers were known for their kindness, their hearty laughter echoing through the market square, and their unwavering belief in the magic that whispered within the heart of their world.
+>
+>**Trial** 3.
+>
+>Once upon a time, nestled between the whispering pines and the silver ribbon of Willow Creek, sat the village of Whisperwind. It wasn't much to look at, cobbled streets winding through rows of gingerbread cottages painted in pastel hues, smoke curling lazily from chimneys topped with crooked teacup weathervanes. But within its humble walls simmered a secret, a magic hummed beneath the everyday chatter and laughter, as palpable as the scent of honeysuckle that drifted on the evening breeze.
+>
+>**Trial** 4.
+>
+>Once upon a time, nestled amidst emerald hills and whispering willows, lay the quaint village of Sunshadow.  A ribbon of silver, the Sunstream River, snaked through its heart, reflecting the dancing sunlight and lending an air of perpetual serenity to the village. Life there unfolded at a measured pace, governed by the rising and setting of the sun, the blossoming and fading of flowers, and the gentle rhythm of the river’s flow. 
+>
+>**Trial** 5.
+>
+>Once upon a time, nestled amidst emerald hills and whispering willows, lay the village of Willow Creek. Its inhabitants, hardy folk with hearts as warm as their hearth fires, lived simple lives, their days a tapestry woven from the rhythms of nature. 
+>
 
 
 ### Logit threshold sampler
@@ -203,7 +274,7 @@ settings.min_threshold = 10.0
 
 ### Confidence breaker
 ```
-# CBS with moderate settings
+# CB with moderate settings
 settings.temperature = 1.0
 settings.confidence_breaker = 3
 settings.mid_threshold = 18.0
@@ -231,7 +302,7 @@ settings.high_threshold = 0.999
 >
 
 ```
-# CBS with a longer breaker
+# CB with a longer breaker
 settings.temperature = 1.0
 settings.confidence_breaker = 8
 settings.mid_threshold = 17.0
@@ -264,7 +335,7 @@ settings.high_threshold = 0.999
 
 ### Logit threshold sampler + Confidence breaker
 ```
-# LTS + CBS, conservative settings
+# LTS + CB, conservative settings
 settings.temperature = 1.0
 settings.temp_threshold = 10.0
 settings.min_threshold = 10.0
@@ -353,7 +424,7 @@ settings.high_threshold = 0.999
 >Once upon a time, in a world draped in hues unseen to any but the kind-hearted and those brave enough to peer beneath the shimmer, lived the Willow Weaver, Elwyn. Not by profession, for weaving wasn’t something you chose in a land of perpetual starlight where every blossom sang, but by essence. Elwyn was spun from the same light as the starfire moss and the Moon-Dancer butterflies. His whispers carried the scent of blooming Duskweed and the rustle of wings unseen in the emerald forests.
 
 
-## Explanation: Logit threshold sampler (LTS)
+## Explanation: Logit threshold sampler
 
 In language model text generation, adjusting the temperature parameter affects the randomness of the output:
 * Low temperature produces highly probable and repetitive token selections, leading to coherent but less diverse and potentially uninteresting text.
@@ -394,7 +465,7 @@ The **logit threshold sampler** addresses this trade-off by:
 5. Adjust temparture according to your use case
 6. Set logit_threshold_stats to False once you are comfortable that the sampler is working as desired
 
-## Explanation: Confidence breaker sampler (CBS)
+## Explanation: Confidence breaker sampler
 Current generation language models are well known for producing certain cliched phrases, which would not necessarily be problematic in a single instance, but are known to be produced repeatedly in response to varied prompts. This is the so-called ai-slop problem. In 'deterministic' use cases this is usually not an issue, as we are simply looking for the one correct answer. In scenarios where engaging, diverse language choices are valued, ai-slop represents a significant limitation.
 
 Current approaches to resolving this issue involve user defined lists of banned strings. This can be reasonably effective, however fail to address the deeper issue, which is the tendency of language models to funnel their responses into unintentionally learned 'tram-track' token sequences, where token choices are strongly conditioned by their immediate predecessors in a manner which is not logically or grammatically implied by the prompt or by those preceding choices.
