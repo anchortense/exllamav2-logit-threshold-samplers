@@ -7,6 +7,8 @@ Two new samplers enabling coherent diverse text generation.
 
 The key innovation is to use absolute logit values instead of softmax probabilities to retain the model’s raw confidence in each token, allowing more precise evaluation and filtering.
 
+Scroll down for generation examples/comparisons, and parameter documentation.
+
 ### Proof of concept
 This repository contains a proof of concept implementation of the above samplers, forked from exllamav2 v0.2.3.
 
