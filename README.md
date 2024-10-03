@@ -25,7 +25,7 @@ Create and activate a new environment, pip install an official exllamav2 wheel f
 from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Cache, ExLlamaV2Tokenizer
 from exllamav2.generator import ExLlamaV2DynamicGenerator, ExLlamaV2Sampler, ExLlamaV2DynamicJob
 
-model_dir = "C:/Users/daniel/LLMs/gemma-2-9b-it-exl2/"
+model_dir = "models/gemma-2-9b-it-exl2/"
 
 config = ExLlamaV2Config(model_dir)
 model = ExLlamaV2(config)
