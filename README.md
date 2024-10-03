@@ -48,29 +48,24 @@ Write at least 500 words, beginning with and in the same style as the following:
 {prompt_insert}"""
 
 prompts.append(prompt)
-prompts.append(prompt)
-prompts.append(prompt)
-prompts.append(prompt)
-prompts.append(prompt)
-prompts.append(prompt)
 
 # Set up sampler settings
 settings = ExLlamaV2Sampler.Settings()
 settings.logit_threshold_stats = False
 settings.confidence_breaker_debug = False
 
-settings.temperature = 10.0
-settings.temp_threshold = 16.0
-settings.min_threshold = 12.0
+settings.temperature = 1.0
+settings.temp_threshold = 10.0
+settings.min_threshold = 10.0
 settings.confidence_breaker = 8
-settings.mid_threshold = 16.0
+settings.mid_threshold = 18.0
 settings.high_threshold = 0.999
 
 for idx, prompt_str in enumerate(prompts):
     job = ExLlamaV2DynamicJob(
         input_ids=tokenizer.encode(prompt_str, add_bos=True),
-        max_new_tokens=100,
-        stop_conditions=[tokenizer.eos_token_id, '\n'],
+        max_new_tokens=500,
+        stop_conditions=[tokenizer.eos_token_id],
         gen_settings=settings,
         identifier=idx,
     )
