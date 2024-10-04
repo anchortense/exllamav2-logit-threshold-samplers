@@ -491,7 +491,7 @@ Empirical observation also validates the decision to return back and alter the t
   * If this value is <= 1, it is treated as a probability value, if it is > 1 it is treated as a logit threshold
   * For Gemma 2 9B, a good starting point is mid_threshold=17.0 - it is recommended to use this as a logit threshold, as these reflect absolute token assessments
   * Tune this up to tighten the conditions for detecting tram-tracks, tune it down to loosen them
-* **high_threshold** - If a logit is encountered above this threshold, it is assigned the same flag as the token just before. This way the model is permitted to provide a prediction that it is highly confident if it is the only viable option. For example if it follows logically or grammatically from previously generated tokens.
+* **high_threshold** - If a logit is encountered above this threshold, it is assigned a None flag, and neither adds to the sequence nor resets it. This way the model is permitted to provide a prediction that it is highly confident if it is the only viable option. For example if it follows logically or grammatically from previously generated tokens.
   * If this value is <= 1, it is treated as a probability value, if it is > 1 it is treated as a logit threshold
   * For Gemma 2 9B, a good starting point is high_threshold=0.999 - it is recommended to use this as a probability value, as this reflects a relative confidence wrt other options
   * Tune this down if the model starts escaping tram-tracks by resorting to incoherence, tune it up if you get too many tram-tracks slipping through
