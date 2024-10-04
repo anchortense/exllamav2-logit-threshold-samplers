@@ -136,6 +136,8 @@ Prompt: "Write at least 500 words, beginning with and in the same style as the f
 
 Model: gemma-2-9b-it-exl2-6bpw
 
+Note that the trials below are cut-off after the first paragraph block.
+
 ### Baseline output for comparison
 ```
 settings.temperature = 1.0
