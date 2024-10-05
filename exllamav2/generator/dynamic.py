@@ -2092,23 +2092,23 @@ class ExLlamaV2DynamicJob:
                 else:
                     confidence_breaker_match = -1  # Treat None as False flag
 
-                if confidence_breaker_match >= 0:  # Match confidence breaker
-                    set_checkpoint()  # Increment offset
-                    if self.confidence_breaker_debug:
-                        print(f'[Confidence breaker activated on text: "{self.held_text}"]', flush=True)
-                    offending_tokens, offending_text = rewind_checkpoint()
-                    return emit(results, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
-                elif banned_string_match >= 0:
-                    set_checkpoint()  # Increment offset
-                    offending_tokens, offending_text = rewind_checkpoint()
-                    return emit(results, emit_held = True, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
-                elif banned_string_match == -2 or confidence_breaker_match == -2:  # Partial match
+            if confidence_breaker_match >= 0:  # Match confidence breaker
+                set_checkpoint()  # Increment offset
+                if self.confidence_breaker_debug:
+                    print(f'[Confidence breaker activated on text: "{self.held_text}"]', flush=True)
+                offending_tokens, offending_text = rewind_checkpoint()
+                return emit(results, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
+            elif banned_string_match >= 0:
+                set_checkpoint()  # Increment offset
+                offending_tokens, offending_text = rewind_checkpoint()
+                return emit(results, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
+            elif banned_string_match == -2 or confidence_breaker_match == -2:  # Partial match
+                set_checkpoint()
+                return emit(results)
+            else:  # Reset and permit text passthrough
+                if len(self.full_completion) > 0:
                     set_checkpoint()
-                    return emit(results)
-                else:  # Reset and permit text passthrough
-                    if len(self.full_completion) > 0:
-                        set_checkpoint()
-                    unset_checkpoint()
+                unset_checkpoint()
 
         # End on stop strings
 
