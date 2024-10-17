@@ -11,10 +11,8 @@ Scroll down for generation examples/comparisons, and parameter documentation.
 
 ### Proof of concept
 This repository contains a proof of concept implementation of the above samplers, forked from exllamav2 v0.2.3.
-
-These implementations have not been optimised for efficiency (and run at around 70-80% speed), or integrated with other existing samplers beyond temperature, such as min-p, top-k, etc.
-
-These implementations are not compatible with batched prompts, and have not been tested for use with banned_strings, which may lead to unexpected interactions with CB.
+branch master (this branch) is the original proof of concept implementation and can be used without recompiling just by dropping the relevant files into exllamav2/generator
+branch full is the standardised c++ implementation intended for merging, and won't work without recompiling.
 
 ### Recommended install process
 Create and activate a new environment, pip install an official exllamav2 wheel from [here](https://github.com/turboderp/exllamav2/releases/tag/v0.2.3) and then swap in the exllamav2/generator folder from this fork.
