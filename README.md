@@ -11,7 +11,9 @@ Scroll down for generation examples/comparisons, and parameter documentation.
 
 ### Proof of concept
 This repository contains a proof of concept implementation of the above samplers, forked from exllamav2 v0.2.3.
+
 branch master (this branch) is the original proof of concept implementation and can be used without recompiling just by dropping the relevant files into exllamav2/generator
+
 branch full is the standardised c++ implementation intended for merging, and won't work without recompiling.
 
 ### Recommended install process
