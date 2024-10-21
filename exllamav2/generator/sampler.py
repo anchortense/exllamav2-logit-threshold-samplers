@@ -50,7 +50,6 @@ class ExLlamaV2Sampler:
 
     @dataclass
     class Settings:
-
         token_repetition_penalty: float = 1.025
         token_repetition_range: int = -1
         token_repetition_decay: int  = 0
@@ -72,6 +71,14 @@ class ExLlamaV2Sampler:
         skew: float = 0
 
         temperature_last: bool = False
+
+        logit_threshold_stats: bool = False
+        temp_threshold: float = 0.0
+        min_threshold: float = 0.0
+
+        confidence_breaker: int = 0
+        mid_threshold: float = 15.0
+        high_threshold: float = 22.0
 
         mirostat: bool = False
         mirostat_tau: float = 1.5
@@ -169,6 +176,109 @@ class ExLlamaV2Sampler:
                     self.token_bias[tokenizer.single_id(t)] = 0.0
                 else:
                     raise ValueError("Incorrect type in allow_tokens list")
+
+    @staticmethod
+    def apply_logit_threshold_sampler(logits, settings: Settings, return_top_tokens: int):
+        """
+        Applies logit based sampling to filter out low likelihood tokens (via low_threshold).
+        Remaining tokens above a further threshold (mid_threshold) can be subjected to much higher temperature without incoherence.
+
+        Args:
+            logits (torch.Tensor): Input logits with shape [1, 1, vocab_size].
+            settings (Settings): Sampling settings, including temperature and entropy threshold.
+            return_top_tokens (int): Number of additional tokens and their probabilities to return
+
+        Returns:
+            tuple:
+                - next_token (torch.Tensor): Sampled token with shape [1, 1, 1].
+                - next_k_tokens (torch.Tensor): Top-k token indices with shape [1, 1, vocab_size].
+                - next_k_probs (torch.Tensor): Top-k token probabilities with shape [1, vocab_size].
+                - next_prob (torch.Tensor): Probability of the sampled token with shape [1, 1, 1].
+        """
+        # Squeeze logits
+        squeezed_logits = logits.squeeze(0).squeeze(0)
+
+        min_logit_threshold = min(torch.max(squeezed_logits).item(), settings.min_threshold)
+
+        filtered_indices_mask = squeezed_logits >= min_logit_threshold
+
+        # Get the filtered values and indices
+        filtered_logits = squeezed_logits[filtered_indices_mask]
+        filtered_indices = torch.nonzero(filtered_indices_mask)
+
+        Q = F.softmax(filtered_logits, dim=-1)
+
+        # Identify mid-confidence tokens
+        mid_conf_mask = filtered_logits < settings.temp_threshold
+        high_conf_mask = ~mid_conf_mask
+
+        # Apply temperature scaling
+        scaled_logits = filtered_logits / settings.temperature
+        scaled_logits = torch.clamp(scaled_logits, min=-1e10, max=1e10)  # Prevent NaN or Inf
+
+        # Compute temperature-scaled probabilities
+        p_prime = F.softmax(scaled_logits, dim=-1)
+
+        # Initialize final probabilities tensor
+        final_probs = torch.zeros_like(p_prime)
+
+        if mid_conf_mask.any():
+            final_probs[mid_conf_mask] = Q[mid_conf_mask]
+        final_probs[high_conf_mask] = p_prime[high_conf_mask]
+
+        # Calculate the sum of probabilities after capping mid confidence tokens
+        sum_p_mid_conf = final_probs[mid_conf_mask].sum().item()
+        sum_p_high_conf_prime = p_prime[high_conf_mask].sum().item()
+
+        # Remaining mass to distribute among low-entropy tokens
+        remaining_mass = 1.0 - sum_p_mid_conf
+
+        # Handle edge cases where sum_p_high_ent > 1 due to floating point inaccuracies
+        if remaining_mass < 0:
+            remaining_mass = 0.0
+
+        # Distribute remaining_mass among low-entropy tokens proportionally to their p'_i
+        if sum_p_high_conf_prime > 0 and remaining_mass > 0:
+            scaling_factor = remaining_mass / sum_p_high_conf_prime
+            final_probs[high_conf_mask] = p_prime[high_conf_mask] * scaling_factor
+        else:
+            # If no low-entropy tokens or no remaining mass, set low-ent probs to zero
+            final_probs[high_conf_mask] = 0.0
+
+        # Normalize final_probs to ensure they sum to 1
+        final_probs = final_probs / final_probs.sum()
+
+        # Handle NaN or Inf values in the probabilities by replacing them with zeros
+        if torch.isnan(final_probs).any() or torch.isinf(final_probs).any():
+            final_probs = torch.where(torch.isnan(final_probs) | torch.isinf(final_probs),
+                                torch.tensor(0.0, device=final_probs.device),
+                                final_probs)
+            if final_probs.sum().item() == 0:  # In case all probabilities become 0, revert to uniform distribution
+                final_probs = torch.ones_like(final_probs) / final_probs.size(0)
+                if settings.logit_threshold_stats:
+                    print('Error populating final_probs, reverting to uniform distribution on filtered logits')
+            else:
+                final_probs /= final_probs.sum(dim=-1, keepdim=True)
+
+        # Sample from the filtered probability distribution
+        sampled_token = torch.multinomial(final_probs, num_samples=1)
+
+        # Map sampled token back to the original vocabulary indices
+        sampled_vocab_idx = filtered_indices[sampled_token].squeeze(-1)
+
+        # Reshape to [1, 1, 1]
+        next_token = sampled_vocab_idx.squeeze(-1).unsqueeze(0).unsqueeze(-1)  # Shape: [1, 1, 1]
+        next_prob = final_probs[sampled_token].squeeze(-1).unsqueeze(0).unsqueeze(-1)  # Shape: [1, 1, 1]
+
+        # Prepare output tensors
+        if return_top_tokens > 0:
+            _, next_k_tokens = torch.topk(final_probs, k=return_top_tokens, dim=-1)
+            next_k_probs = final_probs[next_k_tokens].unsqueeze(0)
+        else:
+            next_k_tokens = None
+            next_k_probs = None
+
+        return next_token, next_k_tokens, next_k_probs, next_prob
 
 
     @staticmethod
@@ -420,6 +530,7 @@ class ExLlamaV2Sampler:
         # Temporarily ban individual tokens
 
         if blocked_tokens:
+            saved_logits = logits[:, :, blocked_tokens].clone()
             logits[:, :, blocked_tokens] = -1e30
 
         # Token bias
@@ -525,35 +636,93 @@ class ExLlamaV2Sampler:
             output_ktokens = torch.empty((batch_size, 1, return_top_tokens), dtype = torch.long)
             output_kprobs = torch.empty((batch_size, 1, return_top_tokens), dtype = torch.float)
 
-        m = ext_c.sample_basic(
-            logits,
-            1.0 if settings.temperature_last else settings.temperature,
-            settings.top_k,
-            settings.top_p,
-            settings.top_a,
-            settings.min_p,
-            settings.tfs,
-            settings.typical,
-            random,
-            output_tokens,
-            output_probs,
-            output_kprobs,
-            output_ktokens,
-            logit_filter if logit_filter is not None else none_tensor,
-            settings.mirostat,
-            settings.mirostat_mu if settings.mirostat else [],
-            settings.mirostat_tau,
-            settings.mirostat_eta,
-            settings.temperature if settings.temperature_last else 1.0,
-            xtc_mask,
-            settings.xtc_probability,
-            settings.xtc_threshold,
-            settings.min_temp,
-            settings.max_temp,
-            settings.temp_exponent,
-            settings.smoothing_factor,
-            settings.skew
-        )
+        if settings.temp_threshold > 0.0 or settings.min_threshold > 0.0:
+            output_tokens, output_ktokens, output_kprobs, output_probs = \
+                ExLlamaV2Sampler.apply_logit_threshold_sampler(logits, settings, return_top_tokens)
+
+        else:
+            m = ext_c.sample_basic(
+                logits,
+                1.0 if settings.temperature_last else settings.temperature,
+                settings.top_k,
+                settings.top_p,
+                settings.top_a,
+                settings.min_p,
+                settings.tfs,
+                settings.typical,
+                random,
+                output_tokens,
+                output_probs,
+                output_kprobs,
+                output_ktokens,
+                logit_filter if logit_filter is not None else none_tensor,
+                settings.mirostat,
+                settings.mirostat_mu if settings.mirostat else [],
+                settings.mirostat_tau,
+                settings.mirostat_eta,
+                settings.temperature if settings.temperature_last else 1.0,
+                xtc_mask,
+                settings.xtc_probability,
+                settings.xtc_threshold,
+                settings.min_temp,
+                settings.max_temp,
+                settings.temp_exponent,
+                settings.smoothing_factor,
+                settings.skew
+            )
+
+        if settings.confidence_breaker > 0:
+            if blocked_tokens and 'saved_logits' in locals():
+                # Restore the saved logits values for the blocked tokens
+                logits[:, :, blocked_tokens] = saved_logits
+                
+            squeezed_logits = logits.squeeze(0).squeeze(0)
+            probs = F.softmax(squeezed_logits, dim=-1)
+            token_prob = probs[output_tokens]
+            token_logit = squeezed_logits[output_tokens]
+            if settings.mid_threshold <= 1.0:
+                confidence_flag = (token_prob >= settings.mid_threshold).item()
+            else:
+                confidence_flag = (token_logit >= settings.mid_threshold).item()
+            if settings.high_threshold <= 1.0:
+                if (token_prob > settings.high_threshold).item():
+                    confidence_flag = None
+            else:
+                if (token_logit > settings.high_threshold).item():
+                    confidence_flag = None
+        else:
+            confidence_flag = False
+
+        if settings.logit_threshold_stats:
+            selected_token = output_tokens
+            squeezed_logits = logits.squeeze(0).squeeze(0)
+            token_logit = squeezed_logits[selected_token]
+            min_logit_threshold = min(torch.max(squeezed_logits).item(), settings.min_threshold)
+            filtered_indices_mask = squeezed_logits >= min_logit_threshold
+            filtered_logits = squeezed_logits[filtered_indices_mask]
+            probs = F.softmax(squeezed_logits, dim=-1)
+            filtered_probs = probs[filtered_indices_mask]
+            min_p_equivalent = filtered_probs[filtered_logits.argmin()].item()
+
+            # Calculate the statistics for filtered_logits
+            min_filtered = filtered_logits.min().item() if len(filtered_logits) > 0 else float('nan')
+            mean_filtered = filtered_logits.mean().item() if len(filtered_logits) > 0 else float('nan')
+            max_filtered = filtered_logits.max().item() if len(filtered_logits) > 0 else float('nan')
+            std_filtered = filtered_logits.std().item() if len(filtered_logits) > 0 else float('nan')
+
+            debug_string = (
+                f"total logits: {squeezed_logits.size(0):<7} "
+                f"filtered to: {filtered_logits.size(0):<4} "
+                f"min: {min_filtered:>5.2f}  "
+                f"mean: {mean_filtered:>5.2f}  "
+                f"max: {max_filtered:>5.2f}  "
+                f"std: {std_filtered:>5.2f}   "
+                f"selected logit: {token_logit.item():>5.2f}   "
+                f"selected token: {selected_token.item():<7}  "
+                f"min_p: {min_p_equivalent:>6.5f}"
+            )
+            print(debug_string)
+
 
         if settings.mirostat: settings.mirostat_mu = m
 
@@ -563,4 +732,4 @@ class ExLlamaV2Sampler:
         if len(filters) > 0 and end_tokens is not None and output_tokens[0].item() in end_tokens:
             end_filter = True
 
-        return output_tokens, output_ktokens, output_kprobs, output_probs, end_filter
+        return output_tokens, output_ktokens, output_kprobs, output_probs, end_filter, confidence_flag

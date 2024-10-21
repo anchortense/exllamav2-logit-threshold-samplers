@@ -20,6 +20,7 @@ from collections import deque
 import hashlib
 import itertools
 from dataclasses import dataclass
+
 # import xxhash
 # from line_profiler import profile
 
@@ -30,12 +31,14 @@ from dataclasses import dataclass
 
 PAGED_PAGE_SIZE = 256
 
+
 def _tensor_blake2b_checksum(tensor: torch.Tensor, prev_hash: bytes | None) -> bytes:
-    hasher = hashlib.blake2b(digest_size = 16)
+    hasher = hashlib.blake2b(digest_size=16)
     if prev_hash is not None:
         hasher.update(prev_hash)
     hasher.update(tensor.numpy().tobytes())
     return hasher.digest()
+
 
 # xxhasher = xxhash.xxh128()
 # def _tensor_xxhash128_checksum(tensor: torch.Tensor, prev_hash: bytes | None) -> bytes:
@@ -49,14 +52,16 @@ def _tensor_blake2b_checksum(tensor: torch.Tensor, prev_hash: bytes | None) -> b
 _tensor_hash_checksum = _tensor_blake2b_checksum
 
 _uniquehash = 0
+
+
 def _randomhash():
     global _uniquehash
     _uniquehash += 1
-    return _uniquehash.to_bytes(16, byteorder = 'big')
+    return _uniquehash.to_bytes(16, byteorder='big')
+
 
 @dataclass
 class CachePage:
-
     generator: ExLlamaV2DynamicGenerator
     page_index: int
     # Hash of this page if kv_position == PAGE_SIZE, else random hash. Also used to index (un)referenced_pages
@@ -168,7 +173,6 @@ class CachePage:
 
 
 class NGramTrie:
-
     token: int
     count: int
     children: dict[int, NGramTrie]
@@ -182,7 +186,6 @@ class NGramTrie:
 
 
 class ExLlamaV2DynamicGenerator:
-
     model: ExLlamaV2
     cache: ExLlamaV2CacheBase
     draft_model: ExLlamaV2
@@ -235,25 +238,24 @@ class ExLlamaV2DynamicGenerator:
     filter_pool: ThreadPoolExecutor
     filter_queue: list
 
-
     def __init__(
-        self,
-        model: ExLlamaV2,
-        cache: ExLlamaV2CacheBase,
-        tokenizer: ExLlamaV2Tokenizer,
-        max_batch_size: int = None,
-        max_seq_len: int | None = None,
-        max_chunk_size: int | None = None,
-        max_q_size: int = 8,
-        draft_model: ExLlamaV2 | None = None,
-        draft_cache: ExLlamaV2CacheBase | None = None,
-        num_draft_tokens: int = 4,
-        use_ngram_draft: bool = False,
-        max_ngram: int = 4,
-        max_sampling_threads: int = 16,
-        min_sampling_threads: int = 3,
-        paged: bool = True,
-        **kwargs
+            self,
+            model: ExLlamaV2,
+            cache: ExLlamaV2CacheBase,
+            tokenizer: ExLlamaV2Tokenizer,
+            max_batch_size: int = None,
+            max_seq_len: int | None = None,
+            max_chunk_size: int | None = None,
+            max_q_size: int = 8,
+            draft_model: ExLlamaV2 | None = None,
+            draft_cache: ExLlamaV2CacheBase | None = None,
+            num_draft_tokens: int = 4,
+            use_ngram_draft: bool = False,
+            max_ngram: int = 4,
+            max_sampling_threads: int = 16,
+            min_sampling_threads: int = 3,
+            paged: bool = True,
+            **kwargs
     ):
         """
         Initialize generator
@@ -339,7 +341,7 @@ class ExLlamaV2DynamicGenerator:
             assert draft_cache is not None, \
                 "Must supply cache for draft model"
             assert draft_cache.max_seq_len == cache.max_seq_len and \
-                draft_cache.batch_size == cache.batch_size, \
+                   draft_cache.batch_size == cache.batch_size, \
                 "Cache and draft cache must be same dimensions"
             assert draft_model.config.max_seq_len >= model.config.max_seq_len, \
                 "Draft model seq len must be >= model seq len"
@@ -410,20 +412,20 @@ class ExLlamaV2DynamicGenerator:
 
         self.logits_pinned = torch.empty(
             (max_batch_size, max_q_size, self.padded_vocab_size),
-            dtype = torch.float,
-            pin_memory = False
+            dtype=torch.float,
+            pin_memory=False
         )
 
         if draft_model:
             self.draft_input_ids_pinned = torch.empty(
                 (max_batch_size, 1),
-                dtype = torch.long,
-                pin_memory = False
+                dtype=torch.long,
+                pin_memory=False
             )
             self.draft_ids_pinned = torch.empty(
                 (max_batch_size, num_draft_tokens),
-                dtype = torch.long,
-                pin_memory = False
+                dtype=torch.long,
+                pin_memory=False
             )
 
         # Ngram
@@ -443,11 +445,11 @@ class ExLlamaV2DynamicGenerator:
         self.max_sampling_threads = max_sampling_threads
         self.min_sampling_threads = min_sampling_threads
         if max_sampling_threads > 1:
-            self.sampling_pool = ThreadPoolExecutor(max_workers = max_sampling_threads)
+            self.sampling_pool = ThreadPoolExecutor(max_workers=max_sampling_threads)
 
         # Filter threads
 
-        self.filter_pool = ThreadPoolExecutor(max_workers = 16)
+        self.filter_pool = ThreadPoolExecutor(max_workers=16)
         self.filter_queue = []
 
         # Temp buffers for defrag
@@ -462,12 +464,11 @@ class ExLlamaV2DynamicGenerator:
             for c in cache_tensors:
                 key = (c.device.index, c.dtype, c.shape[2], c.shape[3])
                 if key not in self.defrag_buffer:
-                    t = torch.empty((1, self.page_size, c.shape[2], c.shape[3]), dtype = c.dtype, device = c.device)
+                    t = torch.empty((1, self.page_size, c.shape[2], c.shape[3]), dtype=c.dtype, device=c.device)
                     self.defrag_buffer[key] = t
 
         else:
             self.defrag_buffer = None
-
 
     def reset_page_table(self):
         """
@@ -479,34 +480,32 @@ class ExLlamaV2DynamicGenerator:
         for idx in range(self.max_pages):
             h = _randomhash()
             cp = CachePage(
-                generator = self,
-                page_index = idx,
-                phash = h,
-                phash_revert = h,
-                prev_hash = None,
-                prev_hash_revert = None,
-                sequence = torch.empty((1, self.page_size), dtype = torch.long),
-                ref_count = 0,
-                access_serial = idx,
-                access_serial_revert = 0,
-                kv_position = 0,
-                kv_position_revert = 0,
-                can_revert = False,
-                new_page_index = 0
+                generator=self,
+                page_index=idx,
+                phash=h,
+                phash_revert=h,
+                prev_hash=None,
+                prev_hash_revert=None,
+                sequence=torch.empty((1, self.page_size), dtype=torch.long),
+                ref_count=0,
+                access_serial=idx,
+                access_serial_revert=0,
+                kv_position=0,
+                kv_position_revert=0,
+                can_revert=False,
+                new_page_index=0
             )
             self.all_pages.append(cp)
             self.unreferenced_pages[h] = cp
         self.access_serial = self.max_pages
         self.last_defrag_serial = self.access_serial
 
-
     def warmup(self):
         """
         Warm up the generator by generating some text, making sure kernel autotune has time to complete.
         """
-        self.generate("Once upon a time,", max_new_tokens = 32)
+        self.generate("Once upon a time,", max_new_tokens=32)
         self.reset_page_table()
-
 
     def set_loras(self, loras: list[ExLlamaV2Lora] | None):
         """
@@ -525,26 +524,25 @@ class ExLlamaV2DynamicGenerator:
             self.current_loras = loras
         else:
             self.current_loras = [loras]
-        
 
     def generate(
-        self,
-        prompt: list[tuple] | list[str] | tuple | str,
-        max_new_tokens: int,
-        min_new_tokens: int = 0,
-        seed: int or None = None,
-        gen_settings: ExLlamaV2Sampler.Settings | list[ExLlamaV2Sampler.Settings] | None = None,
-        token_healing: bool = False,
-        encode_special_tokens: bool = False,
-        decode_special_tokens: bool = False,
-        stop_conditions: list[int | str] | None = None,
-        add_bos: bool = False,
-        abort_event: threading.Event | None = None,
-        completion_only: bool = False,
-        filters: list[list[ExLlamaV2Filter]] | list[ExLlamaV2Filter] | None = None,
-        filter_prefer_eos: bool = False,
-        return_last_results: bool = False,
-        **kwargs
+            self,
+            prompt: list[tuple] | list[str] | tuple | str,
+            max_new_tokens: int,
+            min_new_tokens: int = 0,
+            seed: int or None = None,
+            gen_settings: ExLlamaV2Sampler.Settings | list[ExLlamaV2Sampler.Settings] | None = None,
+            token_healing: bool = False,
+            encode_special_tokens: bool = False,
+            decode_special_tokens: bool = False,
+            stop_conditions: list[int | str] | None = None,
+            add_bos: bool = False,
+            abort_event: threading.Event | None = None,
+            completion_only: bool = False,
+            filters: list[list[ExLlamaV2Filter]] | list[ExLlamaV2Filter] | None = None,
+            filter_prefer_eos: bool = False,
+            return_last_results: bool = False,
+            **kwargs
     ):
         """
         Generate one or more completions.
@@ -618,7 +616,7 @@ class ExLlamaV2DynamicGenerator:
             filters = [None] * len(prompts)
         else:
             assert len(filters) == len(prompts) and \
-                all((f is None or isinstance(f, list)) for f in filters), \
+                   all((f is None or isinstance(f, list)) for f in filters), \
                 "If using filters, must provide one filter list (or None-value) per prompt."
 
         prompts = prompt if isinstance(prompt, list) else [prompt]
@@ -626,9 +624,10 @@ class ExLlamaV2DynamicGenerator:
         for idx, p in enumerate(prompts):
 
             if isinstance(p, str):
-                input_ids = self.tokenizer.encode(p, encode_special_tokens = encode_special_tokens, add_bos = add_bos)
+                input_ids = self.tokenizer.encode(p, encode_special_tokens=encode_special_tokens, add_bos=add_bos)
             elif isinstance(p, tuple):
-                input_ids = [self.tokenizer.encode(p_, encode_special_tokens = encode_special_tokens, add_bos = add_bos) for p_ in p]
+                input_ids = [self.tokenizer.encode(p_, encode_special_tokens=encode_special_tokens, add_bos=add_bos) for
+                             p_ in p]
             else:
                 assert False, "Unexpected type in prompt"
 
@@ -643,16 +642,16 @@ class ExLlamaV2DynamicGenerator:
                 assert False, "Unexpected type in gen_settings"
 
             job = ExLlamaV2DynamicJob(
-                input_ids = input_ids,
-                max_new_tokens = max_new_tokens,
-                min_new_tokens = min_new_tokens,
-                seed = seed,
-                stop_conditions = stop_conditions,
-                gen_settings = p_settings,
-                filters = filters[idx] or [],
-                filter_prefer_eos = filter_prefer_eos,
-                token_healing = token_healing,
-                decode_special_tokens = decode_special_tokens,
+                input_ids=input_ids,
+                max_new_tokens=max_new_tokens,
+                min_new_tokens=min_new_tokens,
+                seed=seed,
+                stop_conditions=stop_conditions,
+                gen_settings=p_settings,
+                filters=filters[idx] or [],
+                filter_prefer_eos=filter_prefer_eos,
+                token_healing=token_healing,
+                decode_special_tokens=decode_special_tokens,
             )
 
             if seed is not None: seed += 1
@@ -692,7 +691,6 @@ class ExLlamaV2DynamicGenerator:
         else:
             return completions
 
-
     def print_page_list(self, short: bool = True):
         for cp in self.all_pages:
             if cp.phash in self.referenced_pages:
@@ -703,10 +701,11 @@ class ExLlamaV2DynamicGenerator:
                 ref = "."
             else:
                 ref = "#"
-            if short: print(ref, end = "")
-            else: print(str(cp) + f", ref {ref}")
+            if short:
+                print(ref, end="")
+            else:
+                print(str(cp) + f", ref {ref}")
         print()
-
 
     def validate_cache(self):
         pass
@@ -773,10 +772,8 @@ class ExLlamaV2DynamicGenerator:
             print(ex)
             raise ex
 
-
     def num_remaining_jobs(self):
         return len(self.pending_jobs) + len(self.active_jobs)
-
 
     def clear_queue(self):
 
@@ -791,8 +788,8 @@ class ExLlamaV2DynamicGenerator:
             self.defrag_cache()
 
     def enqueue(
-        self,
-        job: ExLlamaV2DynamicJob | list[ExLlamaV2DynamicJob]
+            self,
+            job: ExLlamaV2DynamicJob | list[ExLlamaV2DynamicJob]
     ) -> int | list[int]:
         """
         Adds a job or list of jobs to the queue.
@@ -813,10 +810,9 @@ class ExLlamaV2DynamicGenerator:
         job.time_enqueue = time.time()
         return job.serial_number
 
-
     def cancel(
-        self,
-        job: ExLlamaV2DynamicJob
+            self,
+            job: ExLlamaV2DynamicJob
     ):
 
         num_jobs = self.num_remaining_jobs()
@@ -832,7 +828,6 @@ class ExLlamaV2DynamicGenerator:
 
         self.validate_cache()
 
-
     def get_paged_params(self, batch_size: int, block_index: torch.Tensor, cache_seqlens: torch.Tensor, q_len: int):
 
         # assert all(
@@ -843,19 +838,19 @@ class ExLlamaV2DynamicGenerator:
         if self.paged:
 
             return ExLlamaV2Attention.PagedParams(
-                batch_size = batch_size,
-                block_index = block_index,
-                cache_seqlens = cache_seqlens,
-                max_cache_seqlen = cache_seqlens.max().item(),
-                page_size = self.page_size,
-                q_len = q_len,
+                batch_size=batch_size,
+                block_index=block_index,
+                cache_seqlens=cache_seqlens,
+                max_cache_seqlen=cache_seqlens.max().item(),
+                page_size=self.page_size,
+                q_len=q_len,
             )
         else:
             assert cache_seqlens.shape[0] == 1
             return ExLlamaV2Attention.Params(
-                batch_size = 1,
-                seq_len = q_len,
-                past_len = cache_seqlens[0].item()
+                batch_size=1,
+                seq_len=q_len,
+                past_len=cache_seqlens[0].item()
             )
 
     @torch.inference_mode
@@ -952,7 +947,6 @@ class ExLlamaV2DynamicGenerator:
 
         return results
 
-
     def iterate_ngram_gen(self, results: list):
 
         draft_ids_list = []
@@ -966,7 +960,7 @@ class ExLlamaV2DynamicGenerator:
             pos_a = job.ngram_position
             pos_b = len(sequence) - self.max_ngram
             if pos_b > pos_a:
-                subs = sequence.torch()[0, pos_a : pos_b + self.max_ngram].tolist()
+                subs = sequence.torch()[0, pos_a: pos_b + self.max_ngram].tolist()
                 job.ngram_position = pos_b
 
                 for i in range(len(subs) - self.max_ngram):
@@ -1000,10 +994,9 @@ class ExLlamaV2DynamicGenerator:
                 ids.append(w)
                 subs = subs[1:] + [w]
 
-            draft_ids_list.append(torch.tensor([ids], dtype = torch.long))
+            draft_ids_list.append(torch.tensor([ids], dtype=torch.long))
 
-        return torch.cat(draft_ids_list, dim = 0) if len(draft_ids_list) > 0 else None
-
+        return torch.cat(draft_ids_list, dim=0) if len(draft_ids_list) > 0 else None
 
     def iterate_draftmodel_gen(self, results: list):
 
@@ -1018,8 +1011,8 @@ class ExLlamaV2DynamicGenerator:
             return None
 
         max_pages_batch = (max_seq_len + self.page_size - 1) // self.page_size
-        block_index = torch.zeros((batch_size, max_pages_batch), dtype = torch.int32)
-        cache_seqlens = torch.zeros((batch_size,), dtype = torch.int32)
+        block_index = torch.zeros((batch_size, max_pages_batch), dtype=torch.int32)
+        cache_seqlens = torch.zeros((batch_size,), dtype=torch.int32)
 
         batch = 0
         for job in self.active_jobs:
@@ -1042,22 +1035,21 @@ class ExLlamaV2DynamicGenerator:
             input_ids_list += job_ids
 
         batch_ids = self.draft_input_ids_pinned[:batch_size, :]
-        batch_ids.copy_(torch.cat(input_ids_list, dim = 0))
+        batch_ids.copy_(torch.cat(input_ids_list, dim=0))
 
         # Greedy sample draft IDs
 
         for idx in range(self.num_draft_tokens):
-
             attn_params = self.get_paged_params(batch_size, block_index, cache_seqlens, 1)
 
             device_logits = self.draft_model.forward_chunk(
-                input_ids = batch_ids,
-                attn_params = attn_params,
-                cache = self.draft_cache,
+                input_ids=batch_ids,
+                attn_params=attn_params,
+                cache=self.draft_cache,
             )["logits"]
 
-            new_ids = torch.argmax(device_logits, dim = -1)
-            self.draft_ids_pinned[:batch_size, idx:idx+1].copy_(new_ids)
+            new_ids = torch.argmax(device_logits, dim=-1)
+            self.draft_ids_pinned[:batch_size, idx:idx + 1].copy_(new_ids)
             batch_ids.copy_(new_ids)
             cache_seqlens += 1
 
@@ -1067,14 +1059,13 @@ class ExLlamaV2DynamicGenerator:
         attn_params = self.get_paged_params(batch_size, block_index, cache_seqlens, 1)
 
         self.draft_model.forward_chunk(
-            input_ids = batch_ids,
-            attn_params = attn_params,
-            cache = self.draft_cache,
-            preprocess_only = True
+            input_ids=batch_ids,
+            attn_params=attn_params,
+            cache=self.draft_cache,
+            preprocess_only=True
         )
 
         return self.draft_ids_pinned
-
 
     # @profile
     def iterate_gen(self, results: list, draft_tokens: torch.Tensor | None = None):
@@ -1091,8 +1082,8 @@ class ExLlamaV2DynamicGenerator:
             return  # Nothing more to do this iteration
 
         max_pages_batch = (max_seq_len + self.page_size - 1) // self.page_size
-        block_index = torch.zeros((batch_size, max_pages_batch), dtype = torch.int32)
-        cache_seqlens = torch.zeros((batch_size,), dtype = torch.int32)
+        block_index = torch.zeros((batch_size, max_pages_batch), dtype=torch.int32)
+        cache_seqlens = torch.zeros((batch_size,), dtype=torch.int32)
 
         batch = 0
         for job in self.active_jobs:
@@ -1117,24 +1108,24 @@ class ExLlamaV2DynamicGenerator:
                 cuda_sync_active()
                 job.time_first_token = time.time()
             if draft_tokens is None:
-                job_ids = job.get_input_ids_list(add_to_cache = True)
+                job_ids = job.get_input_ids_list(add_to_cache=True)
             else:
-                job_ids = job.get_input_ids_list(draft_tokens, len(input_ids_list), add_to_cache = True)
+                job_ids = job.get_input_ids_list(draft_tokens, len(input_ids_list), add_to_cache=True)
             input_ids_list += job_ids
 
         logit_mapping.append(len(input_ids_list))
 
-        batch_ids = torch.cat(input_ids_list, dim = 0)
+        batch_ids = torch.cat(input_ids_list, dim=0)
 
         # Get logit batch from model
 
         attn_params = self.get_paged_params(batch_size, block_index, cache_seqlens, batch_ids.shape[-1])
 
         device_logits = self.model.forward_chunk(
-            input_ids = batch_ids,
-            attn_params = attn_params,
-            cache = self.cache,
-            loras = self.current_loras,
+            input_ids=batch_ids,
+            attn_params=attn_params,
+            cache=self.cache,
+            loras=self.current_loras,
         )["logits"]
 
         # GPU workload is scheduled here, so launch any sampling filters that can run while waiting for CUDA
@@ -1148,7 +1139,7 @@ class ExLlamaV2DynamicGenerator:
         # Pass logits to jobs for sampling
 
         batch_logits = self.logits_pinned[:device_logits.shape[0], :device_logits.shape[1], :]
-        batch_logits.copy_(device_logits, non_blocking = False)
+        batch_logits.copy_(device_logits, non_blocking=False)
         # device_logits = device_logits.float().cpu()
         # ext_c.fast_copy_cpu(batch_logits, device_logits)
         # torch.cuda.synchronize()
@@ -1168,13 +1159,13 @@ class ExLlamaV2DynamicGenerator:
         for job, a, b in zip(self.active_jobs, logit_mapping[:-1], logit_mapping[1:]):
             if a == b: continue
             for i in range(batch_logits.shape[1]):
-                job_logits = batch_logits[a:b, i:i+1, :]
+                job_logits = batch_logits[a:b, i:i + 1, :]
                 if i == 0 and mt_sample:
-                    next_token, next_k_tokens, next_k_probs, next_prob, filter_eos = \
-                    futures.popleft().result()
+                    next_token, next_k_tokens, next_k_probs, next_prob, filter_eos, confidence_flag = \
+                        futures.popleft().result()
                 else:
-                    next_token, next_k_tokens, next_k_probs, next_prob, filter_eos = \
-                    job.receive_logits(job_logits)
+                    next_token, next_k_tokens, next_k_probs, next_prob, filter_eos, confidence_flag = \
+                        job.receive_logits(job_logits)
 
                 eos, sampled_token = job.receive_sample(
                     job_logits,
@@ -1183,6 +1174,7 @@ class ExLlamaV2DynamicGenerator:
                     next_k_probs,
                     next_prob,
                     filter_eos,
+                    confidence_flag,
                     results
                 )
 
@@ -1217,7 +1209,6 @@ class ExLlamaV2DynamicGenerator:
         if num_jobs and not self.num_remaining_jobs():
             self.defrag_cache()
 
-
     def iterate_start_jobs(self, results: list):
 
         # Get current max batch
@@ -1229,8 +1220,8 @@ class ExLlamaV2DynamicGenerator:
         # Start new jobs if possible
 
         if (len(self.unreferenced_pages) and
-            len(self.pending_jobs) and
-            current_max_batch < self.max_batch_size):
+                len(self.pending_jobs) and
+                current_max_batch < self.max_batch_size):
 
             skipped_jobs = []
             for job in self.pending_jobs.copy():
@@ -1267,9 +1258,8 @@ class ExLlamaV2DynamicGenerator:
                     "serial": job.serial_number,
                 }
                 if job.identifier is not None:
-                    r.update({ "identifier": job.identifier })
+                    r.update({"identifier": job.identifier})
                 results.append(r)
-
 
     @torch.inference_mode
     def defrag_cache(self):
@@ -1289,13 +1279,16 @@ class ExLlamaV2DynamicGenerator:
             parent: CachePage | None = None
             children: set[CacheNode] = None
             left_page: int = len(self.all_pages)
+
             def __init__(self, page_):
                 self.page = page_
                 if self.page:
                     self.left_page = page_.access_serial
                 self.children = set()
+
             def __hash__(self):
                 return id(self)
+
             def __eq__(self, other):
                 return self is other
 
@@ -1320,14 +1313,14 @@ class ExLlamaV2DynamicGenerator:
 
         new_page_index = 0
         while root_node.children:
-            oldest = min(root_node.children, key = lambda x: x.left_page)
+            oldest = min(root_node.children, key=lambda x: x.left_page)
             node = oldest
             skipped_nodes = set()
             while True:
                 node.page.new_page_index = new_page_index
                 new_page_index += 1
                 if not node.children: break
-                next_node = min(node.children, key = lambda x: x.left_page)
+                next_node = min(node.children, key=lambda x: x.left_page)
                 skipped_nodes |= set([n for n in node.children if n != next_node])
                 node = next_node
             root_node.children.remove(oldest)
@@ -1362,10 +1355,10 @@ class ExLlamaV2DynamicGenerator:
 
             rotation = [r * self.page_size for r in rotation]
             for cache, buffer in zip(cache_tensors, defrag_buffers):
-                buffer[:, :, :, :].copy_(cache[:, rotation[0] : rotation[0] + self.page_size, :, :])
+                buffer[:, :, :, :].copy_(cache[:, rotation[0]: rotation[0] + self.page_size, :, :])
                 for a, b in pairwise(rotation):
-                    cache[:, a : a + self.page_size, :, :].copy_(cache[:, b : b + self.page_size, :, :])
-                cache[:, rotation[-1] : rotation[-1] + self.page_size, :, :].copy_(buffer[:, :, :, :])
+                    cache[:, a: a + self.page_size, :, :].copy_(cache[:, b: b + self.page_size, :, :])
+                cache[:, rotation[-1]: rotation[-1] + self.page_size, :, :].copy_(buffer[:, :, :, :])
 
         # Update page table
 
@@ -1378,7 +1371,6 @@ class ExLlamaV2DynamicGenerator:
 # Convert list of strings to UTF32 format to pass by reference to partial matching function
 
 def _strings_to_utf32(strings: list[str]) -> (np.array, list[int]):
-
     if not strings: return bytearray(), None
 
     encoded_strings = [s.encode("utf-32-le") for s in strings]
@@ -1391,8 +1383,8 @@ def _strings_to_utf32(strings: list[str]) -> (np.array, list[int]):
     for s, offset in zip(encoded_strings, offsets[:-1]):
         concat_strings[offset:offset + len(s)] = s
 
-    concat_strings = np.frombuffer(concat_strings, dtype = np.uint8)
-    offsets = np.frombuffer(np.array(offsets, dtype = np.int32), dtype = np.uint8)
+    concat_strings = np.frombuffer(concat_strings, dtype=np.uint8)
+    offsets = np.frombuffer(np.array(offsets, dtype=np.int32), dtype=np.uint8)
     return concat_strings, offsets
 
 
@@ -1407,7 +1399,6 @@ def _strings_to_utf32(strings: list[str]) -> (np.array, list[int]):
 
 
 class ExLlamaV2DynamicJob:
-
     generator: ExLlamaV2DynamicGenerator | None
     serial_number: int | None
 
@@ -1489,26 +1480,25 @@ class ExLlamaV2DynamicJob:
     banned_strings_utf32_offsets: np.array or None
     checkpoint: dict | None
 
-
     def __init__(
-        self,
-        input_ids: torch.Tensor | list[torch.Tensor],
-        max_new_tokens: int,
-        min_new_tokens: int = 0,
-        max_skips: int | None = 4,
-        gen_settings: ExLlamaV2Sampler.Settings = ExLlamaV2Sampler.Settings(),
-        seed: int = None,
-        stop_conditions: list | tuple | set = None,
-        decode_special_tokens: bool = False,
-        return_top_tokens: int = 0,
-        return_logits: bool = False,
-        return_probs: bool = False,
-        filters: list[ExLlamaV2Filter] | None = None,
-        filter_prefer_eos: bool = False,
-        token_healing: bool = False,
-        identifier: object | None = None,
-        banned_strings: list[str] | None = None,
-        **kwargs
+            self,
+            input_ids: torch.Tensor | list[torch.Tensor],
+            max_new_tokens: int,
+            min_new_tokens: int = 0,
+            max_skips: int | None = 4,
+            gen_settings: ExLlamaV2Sampler.Settings = ExLlamaV2Sampler.Settings(),
+            seed: int = None,
+            stop_conditions: list | tuple | set = None,
+            decode_special_tokens: bool = False,
+            return_top_tokens: int = 0,
+            return_logits: bool = False,
+            return_probs: bool = False,
+            filters: list[ExLlamaV2Filter] | None = None,
+            filter_prefer_eos: bool = False,
+            token_healing: bool = False,
+            identifier: object | None = None,
+            banned_strings: list[str] | None = None,
+            **kwargs
     ):
         """
         Create new job.
@@ -1576,7 +1566,7 @@ class ExLlamaV2DynamicJob:
         """
 
         assert all(ids.device.type == "cpu" for ids in input_ids), \
-                "input_ids must reside in system memory"
+            "input_ids must reside in system memory"
 
         self.generator = None
         self.serial_number = None
@@ -1592,7 +1582,7 @@ class ExLlamaV2DynamicJob:
 
         if token_healing and all(ids.shape[-1] > 1 for ids in input_ids):
             input_seq_ids = [ids[:, :-1] for ids in input_ids]
-            self.prefix_token = torch.cat([ids[:, -1:] for ids in input_ids], dim = 0)
+            self.prefix_token = torch.cat([ids[:, -1:] for ids in input_ids], dim=0)
         else:
             input_seq_ids = input_ids
             self.prefix_token = None
@@ -1604,8 +1594,8 @@ class ExLlamaV2DynamicJob:
             assert ids.shape[0] == 1, \
                 "input_ids must be [1, seq_len] tensor or list of [1, seq_len] tensors"
             seq = ExLlamaV2DynamicJob.Sequence()
-            seq.input_ids = SeqTensor.from_tensor(ids, seq_dim = -1)
-            seq.sequence_ids = SeqTensor.from_tensor(seq_ids, seq_dim = -1)
+            seq.input_ids = SeqTensor.from_tensor(ids, seq_dim=-1)
+            seq.sequence_ids = SeqTensor.from_tensor(seq_ids, seq_dim=-1)
             seq.kv_position = 0
             seq.page_hashes = None
             seq.new_unique_pages = 0
@@ -1636,9 +1626,12 @@ class ExLlamaV2DynamicJob:
         self.stop_tokens = set()
         if stop_conditions is not None:
             for t in stop_conditions:
-                if isinstance(t, int): self.stop_tokens.add(t)
-                elif isinstance(t, str): self.stop_strings.add(t)
-                else: raise ValueError("Unsupported type in stop_conditions")
+                if isinstance(t, int):
+                    self.stop_tokens.add(t)
+                elif isinstance(t, str):
+                    self.stop_strings.add(t)
+                else:
+                    raise ValueError("Unsupported type in stop_conditions")
             self.stop_strings_utf32_buffer, self.stop_strings_utf32_offsets = \
                 _strings_to_utf32(list(self.stop_strings))
         else:
@@ -1661,6 +1654,9 @@ class ExLlamaV2DynamicJob:
 
         self.checkpoint = None
 
+        self.confidence_breaker = gen_settings.confidence_breaker
+        self.confidence_breaker_debug = gen_settings.confidence_breaker_debug
+        self.confidence_flag_sequence = [False] * self.confidence_breaker
         # Measurement
 
         self.time_enqueue = None
@@ -1685,17 +1681,14 @@ class ExLlamaV2DynamicJob:
         self.filters = filters if filters is not None else []
         self.filter_prefer_eos = filter_prefer_eos
 
-
     def __repr__(self):
         if self.serial_number is None:
             return "ExLlamaV2DynamicJob (new)"
         else:
             return f"ExLlamaV2DynamicJob #{self.serial_number}"
 
-
     def is_prefill_done(self):
         return all(seq.kv_position == len(seq.sequence_ids) - 1 for seq in self.sequences)
-
 
     def get_max_seq_len(self):
         if not self.is_prefill_done():
@@ -1706,13 +1699,12 @@ class ExLlamaV2DynamicJob:
                 max_seq_len = max(max_seq_len, len(seq.sequence_ids))
         return max_seq_len
 
-
     def get_input_ids_list(self, draft_tokens: torch.Tensor | None = None, idx: int = 0, add_to_cache: bool = False):
         input_ids_list = []
         for seq in self.sequences:
             ids = seq.sequence_ids.torch_slice(seq.kv_position, None)
             if draft_tokens is not None:
-                ids = torch.cat((ids, draft_tokens[idx:idx+1, :]), dim = -1)
+                ids = torch.cat((ids, draft_tokens[idx:idx + 1, :]), dim=-1)
             input_ids_list.append(ids)
             if add_to_cache:
                 tokens_to_add = ids.shape[-1]
@@ -1731,10 +1723,9 @@ class ExLlamaV2DynamicJob:
                     page.can_revert = False
         return input_ids_list
 
-
     def receive_logits(
-        self,
-        logits: torch.Tensor,
+            self,
+            logits: torch.Tensor,
     ):
         # Support single seq and CFG for now
 
@@ -1762,23 +1753,22 @@ class ExLlamaV2DynamicJob:
             else:
                 blocked_tokens = self.stop_tokens_list
 
-        next_token, next_k_tokens, next_k_probs, next_prob, filter_eos = \
-        ExLlamaV2Sampler.sample(
-            logits,
-            self.gen_settings,
-            self.sequences[0].sequence_ids.torch(),
-            self.rng.random(),
-            self.generator.tokenizer,
-            self.prefix_token if self.new_tokens == -1 else None,
-            self.return_top_tokens,
-            blocked_tokens = blocked_tokens,
-            filters = self.filters if self.new_tokens >= 0 else None,
-            filter_prefer_eos = self.filter_prefer_eos,
-            # sync = True
-        )
+        next_token, next_k_tokens, next_k_probs, next_prob, filter_eos, confidence_flag = \
+            ExLlamaV2Sampler.sample(
+                logits,
+                self.gen_settings,
+                self.sequences[0].sequence_ids.torch(),
+                self.rng.random(),
+                self.generator.tokenizer,
+                self.prefix_token if self.new_tokens == -1 else None,
+                self.return_top_tokens,
+                blocked_tokens=blocked_tokens,
+                filters=self.filters if self.new_tokens >= 0 else None,
+                filter_prefer_eos=self.filter_prefer_eos,
+                # sync = True
+            )
 
-        return next_token, next_k_tokens, next_k_probs, next_prob, filter_eos
-
+        return next_token, next_k_tokens, next_k_probs, next_prob, filter_eos, confidence_flag
 
     def receive_sample(
             self,
@@ -1788,6 +1778,7 @@ class ExLlamaV2DynamicJob:
             next_k_probs: torch.Tensor | None,
             next_prob: torch.Tensor | None,
             filter_eos: bool | None,
+            confidence_flag: bool | None,
             results: list
     ):
         page_size = self.generator.page_size
@@ -1800,6 +1791,14 @@ class ExLlamaV2DynamicJob:
                 # Evaluate filter in background when possible
                 if f.use_background_worker():
                     self.generator.filter_queue.append(f)
+
+        # Update confidence_flag_sequence
+
+        if confidence_flag is not None:
+            self.confidence_flag_sequence.append(confidence_flag)
+            # Limit the size of the sequence to prevent it from growing indefinitely
+            if len(self.confidence_flag_sequence) > self.confidence_breaker + 1:
+                self.confidence_flag_sequence.pop(0)
 
         # Accept token
 
@@ -2026,6 +2025,7 @@ class ExLlamaV2DynamicJob:
                     "held_k_tokens": self.held_k_tokens.clone(1),
                     "held_k_probs": self.held_k_probs.clone(1),
                     "held_logits": self.held_logits.clone(1),
+                    "flag_sequence": self.confidence_flag_sequence[:-1].copy(),
                     "explored_tokens": [next_token.item()],
                 }
             else:
@@ -2054,28 +2054,60 @@ class ExLlamaV2DynamicJob:
             off_tokens = self.held_tokens.slice(len(self.checkpoint["held_tokens"]), None)
             off_text = self.held_text[len(self.checkpoint["held_text"]):]
             self.held_text = self.checkpoint["held_text"]
-            self.held_token = self.checkpoint["held_tokens"]
+            self.held_tokens = self.checkpoint["held_tokens"]
             self.held_probs = self.checkpoint["held_probs"]
             self.held_k_tokens = self.checkpoint["held_k_tokens"]
             self.held_k_probs = self.checkpoint["held_k_probs"]
             self.held_logits = self.checkpoint["held_logits"]
+            self.confidence_flag_sequence = self.checkpoint["flag_sequence"]
             self.checkpoint["offset"] = 0
             return off_tokens, off_text
 
-        if self.banned_strings_utf32_offsets is not None and self.new_tokens > 0:
-            match = ext_c.partial_strings_match(
-                np.frombuffer(self.held_text.lower().encode("utf-32-le"), dtype = np.uint8),
-                self.banned_strings_utf32_offsets,
-                self.banned_strings_utf32_buffer
-            )
-            if match >= 0:
-                set_checkpoint()
+        if self.new_tokens > 0:
+            # Check for banned strings
+            banned_string_match = -1
+            if self.banned_strings_utf32_offsets is not None:
+                banned_string_match = ext_c.partial_strings_match(
+                    np.frombuffer(self.held_text.lower().encode("utf-32-le"), dtype = np.uint8),
+                    self.banned_strings_utf32_offsets,
+                    self.banned_strings_utf32_buffer
+                )
+
+            confidence_breaker_match = -1
+            if self.confidence_breaker > 0:
+                # Check for confidence_flag sequence
+                if confidence_flag is not None:
+                    if len(self.confidence_flag_sequence) >= self.confidence_breaker + 1:
+                        last_n_flags = self.confidence_flag_sequence[-self.confidence_breaker:]
+                        if not confidence_flag:
+                            confidence_breaker_match = -1  # False flag
+                        elif all(last_n_flags):
+                            confidence_breaker_match = 1  # Match
+                        else:
+                            confidence_breaker_match = -2  # Partial match
+                    else:
+                        confidence_breaker_match = -2  # Partial match
+                elif self.confidence_flag_sequence[-1]:
+                    confidence_breaker_match = -2  # Treat None as True flag, with partial match
+                else:
+                    confidence_breaker_match = -1  # Treat None as False flag
+
+            if confidence_breaker_match >= 0:  # Match confidence breaker
+                set_checkpoint()  # Increment offset
+                if self.confidence_breaker_debug:
+                    print(f'[Confidence breaker activated on text: "{self.held_text}"]', flush=True)
                 offending_tokens, offending_text = rewind_checkpoint()
-                return emit(results, emit_held = True, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
-            elif match == -2:
+                return emit(results, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
+            elif banned_string_match >= 0:
+                set_checkpoint()  # Increment offset
+                offending_tokens, offending_text = rewind_checkpoint()
+                return emit(results, suppressed_text = offending_text, suppressed_tokens = offending_tokens)
+            elif banned_string_match == -2 or confidence_breaker_match == -2:  # Partial match
                 set_checkpoint()
                 return emit(results)
-            else:
+            else:  # Reset and permit text passthrough
+                if len(self.full_completion) > 0:
+                    set_checkpoint()
                 unset_checkpoint()
 
         # End on stop strings
@@ -2160,14 +2192,13 @@ class ExLlamaV2DynamicJob:
         # Initial conditions
 
         self.held_text = ""
-        self.held_tokens = SeqTensor((1, 0), dtype = torch.long, seq_dim = -1)
-        self.held_k_tokens = SeqTensor((1, 0, self.return_top_tokens), dtype = torch.long, seq_dim = 1)
-        self.held_k_probs = SeqTensor((1, 0, self.return_top_tokens), dtype = torch.float, seq_dim = 1)
-        self.held_probs = SeqTensor((1, 0), dtype = torch.float, seq_dim = -1)
-        self.held_logits = SeqTensor((1, 0, self.generator.padded_vocab_size), dtype = torch.float, seq_dim = 1)
+        self.held_tokens = SeqTensor((1, 0), dtype=torch.long, seq_dim=-1)
+        self.held_k_tokens = SeqTensor((1, 0, self.return_top_tokens), dtype=torch.long, seq_dim=1)
+        self.held_k_probs = SeqTensor((1, 0, self.return_top_tokens), dtype=torch.float, seq_dim=1)
+        self.held_probs = SeqTensor((1, 0), dtype=torch.float, seq_dim=-1)
+        self.held_logits = SeqTensor((1, 0, self.generator.padded_vocab_size), dtype=torch.float, seq_dim=1)
 
         self.full_completion = ""
-
 
     def current_new_pages_required(self):
         new_pages = 0
@@ -2177,7 +2208,6 @@ class ExLlamaV2DynamicJob:
         for s in self.sequences:
             new_pages += s.new_unique_pages
         return new_pages
-
 
     def prefill(self, results: list):
 
@@ -2244,7 +2274,7 @@ class ExLlamaV2DynamicJob:
                         page = seq.allocated_pages[p0]
                         # print([sap.page_index for sap in seq.allocated_pages])
                         for c in [self.generator.cache] if not self.generator.draft_model else \
-                            [self.generator.cache, self.generator.draft_cache]:
+                                [self.generator.cache, self.generator.draft_cache]:
                             c.copy_states(
                                 c,
                                 best_match_page.page_index * page_size, best_match,
@@ -2300,27 +2330,27 @@ class ExLlamaV2DynamicJob:
                 attn_params = self.generator.get_paged_params(
                     1,
                     self.get_block_index(seq, prefill_end).unsqueeze(0),
-                    torch.tensor([prefill_start], dtype = torch.int32),
+                    torch.tensor([prefill_start], dtype=torch.int32),
                     prefill_ids.shape[-1]
                 )
 
                 if self.generator.draft_model:
                     self.generator.draft_model.forward_chunk(
-                        input_ids = prefill_ids,
-                        preprocess_only = True,
-                        attn_params = attn_params,
-                        cache = self.generator.draft_cache,
+                        input_ids=prefill_ids,
+                        preprocess_only=True,
+                        attn_params=attn_params,
+                        cache=self.generator.draft_cache,
                     )
 
                 if not self.generator.paged:
                     self.generator.cache.current_seq_len = prefill_start
 
                 self.generator.model.forward_chunk(
-                    input_ids = prefill_ids,
-                    preprocess_only = True,
-                    attn_params = attn_params,
-                    cache = self.generator.cache,
-                    loras = self.generator.current_loras,
+                    input_ids=prefill_ids,
+                    preprocess_only=True,
+                    attn_params=attn_params,
+                    cache=self.generator.cache,
+                    loras=self.generator.current_loras,
                 )
 
                 seq.kv_position = prefill_end
@@ -2344,7 +2374,8 @@ class ExLlamaV2DynamicJob:
                     page = seq.allocated_pages[0]
                     page.kv_position = prefill_end
                     page.prev_hash = None
-                    page.sequence[:, prefill_start:prefill_end].copy_(seq.sequence_ids.torch_slice(prefill_start, prefill_end))
+                    page.sequence[:, prefill_start:prefill_end].copy_(
+                        seq.sequence_ids.torch_slice(prefill_start, prefill_end))
 
                 progress += prefill_end - prefill_start
                 if progress >= len(seq.sequence_ids) - 1:
@@ -2368,18 +2399,16 @@ class ExLlamaV2DynamicJob:
 
             self.generator.validate_cache()
 
-
     def get_block_index(self, seq: Sequence, max_len) -> torch.Tensor:
 
         page_size = self.generator.page_size
 
         if seq.block_index_tensor is None:
             block_index = [page.page_index for page in seq.allocated_pages]
-            seq.block_index_tensor = torch.tensor(block_index, dtype = torch.int32)
+            seq.block_index_tensor = torch.tensor(block_index, dtype=torch.int32)
 
         num_blocks = (max_len + page_size - 1) // page_size
         return seq.block_index_tensor[:num_blocks]
-
 
     def allocate_pages(self):
 
@@ -2419,7 +2448,7 @@ class ExLlamaV2DynamicJob:
 
                         if available_pages is None:
                             available_pages = list(self.generator.unreferenced_pages.values())
-                            available_pages.sort(key = lambda x: x.access_serial)
+                            available_pages.sort(key=lambda x: x.access_serial)
                             available_pages = deque(available_pages)
                         else:
                             while available_pages[0].ref_count:
@@ -2445,7 +2474,7 @@ class ExLlamaV2DynamicJob:
 
                 if available_pages is None:
                     available_pages = list(self.generator.unreferenced_pages.values())
-                    available_pages.sort(key = lambda x: x.access_serial)
+                    available_pages.sort(key=lambda x: x.access_serial)
                     available_pages = deque(available_pages)
                 else:
                     while available_pages[0].ref_count:
@@ -2476,7 +2505,6 @@ class ExLlamaV2DynamicJob:
                     self.non_sequential_pages += 1
 
         self.generator.validate_cache()
-
 
     def deallocate_pages(self):
 
